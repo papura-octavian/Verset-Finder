@@ -43,6 +43,9 @@ export default function App() {
     return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
+  // Câmpul de căutare (pentru scurtătura „/").
+  const searchInputRef = useRef(null);
+
   // Index construit la cerere pentru traducerea activă, păstrat în cache (switch instant).
   const indexCache = useRef({});
   useEffect(() => {
@@ -76,6 +79,35 @@ export default function App() {
       document.head.appendChild(link);
     }
     link.href = logo;
+  }, []);
+
+  // Scurtături de tastatură: „/" focus pe căutare, „Esc" golește / iese din câmp.
+  useEffect(() => {
+    function onKeyDown(e) {
+      const el = document.activeElement;
+      const tag = el?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable;
+
+      if (e.key === '/' && !typing) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        const input = searchInputRef.current;
+        if (input && input.value) {
+          e.preventDefault();
+          setQuery('');
+          input.focus();
+        } else if (el === input) {
+          input.blur();
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const debouncedQuery = useDebounced(query, 150);
@@ -170,11 +202,12 @@ export default function App() {
           onChaptersChange={setChapters}
           chapterCount={chapterCount}
           bookList={books}
+          inputRef={searchInputRef}
         />
 
         <SearchHistory history={history} onSelect={setQuery} onClear={clearHistory} />
 
-        <div className="mt-6">
+        <div className="mt-6" role="region" aria-label="Rezultatele căutării">
           {!index ? (
             <p className="py-12 text-center text-slate-400 dark:text-slate-500">Se încarcă Biblia…</p>
           ) : results === null ? (

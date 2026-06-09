@@ -12,6 +12,7 @@ export default function SearchBar({
   onChaptersChange,
   chapterCount,
   bookList,
+  inputRef,
 }) {
   const bookSelected = book && book !== 'all';
   const VT = bookList.filter((b) => b.testament === 'VT');
@@ -20,12 +21,15 @@ export default function SearchBar({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <input
+        ref={inputRef}
         type="text"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onCommit()}
         onBlur={onCommit}
         placeholder="Caută un cuvânt sau o frază…"
+        aria-label="Caută în Biblie"
+        aria-keyshortcuts="/"
         autoFocus
         spellCheck={false}
         className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-lg text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300 dark:focus:ring-slate-100/10"
