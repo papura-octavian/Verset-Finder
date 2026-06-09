@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Paginile aplicației (sertarul ☰). Iconițele sunt inline, în stilul celorlalte.
 const PAGES = [
@@ -6,12 +6,34 @@ const PAGES = [
   { id: 'read', label: 'Citește', icon: BookIcon, desc: 'Citește Biblia capitol cu capitol' },
 ];
 
+// Durata tranziției (ms) — ține-o sincronă cu clasele duration-* de mai jos.
+const ANIM_MS = 300;
+
 /**
  * Sertar de navigație din stânga (deschis de butonul ☰ din bara de sus).
  * Backdrop + Escape + click pe fundal îl închid; alegerea unei pagini navighează
  * și închide. Pe telefon ocupă ~80vw (max 320px), pe desktop aceeași lățime fixă.
+ * Animat: panoul glisează din stânga, fundalul face fade; la închidere rulează
+ * tranziția inversă și abia apoi se demontează.
  */
 export default function NavDrawer({ open, view, onNavigate, onClose }) {
+  // `render` ține componenta montată pe durata animației de ieșire;
+  // `shown` comută clasele de tranziție (false = starea „în afara ecranului").
+  const [render, setRender] = useState(open);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRender(true);
+      // Două cadre: întâi se pictează starea „închis", apoi pornește tranziția.
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
+      return () => cancelAnimationFrame(id);
+    }
+    setShown(false);
+    const t = setTimeout(() => setRender(false), ANIM_MS);
+    return () => clearTimeout(t);
+  }, [open]);
+
   // Închide cu Escape cât e deschis.
   useEffect(() => {
     if (!open) return undefined;
@@ -25,11 +47,14 @@ export default function NavDrawer({ open, view, onNavigate, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!render) return null;
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"
+      className={
+        'fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 ' +
+        (shown ? 'opacity-100' : 'pointer-events-none opacity-0')
+      }
       role="dialog"
       aria-modal="true"
       aria-label="Meniu de navigație"
@@ -37,7 +62,12 @@ export default function NavDrawer({ open, view, onNavigate, onClose }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <nav className="flex h-full w-[80vw] max-w-80 flex-col gap-1 bg-white p-3 shadow-2xl dark:bg-slate-900">
+      <nav
+        className={
+          'flex h-full w-[80vw] max-w-80 flex-col gap-1 bg-white p-3 shadow-2xl transition-transform duration-300 ease-out dark:bg-slate-900 ' +
+          (shown ? 'translate-x-0' : '-translate-x-full')
+        }
+      >
         <div className="mb-2 flex items-center justify-between px-1">
           <span className="text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Meniu
