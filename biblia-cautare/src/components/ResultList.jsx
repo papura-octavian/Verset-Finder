@@ -5,7 +5,7 @@ import VerseCard from './VerseCard.jsx';
 // react-window — vezi planul §7.)
 const MAX_RENDER = 500;
 
-export default function ResultList({ results, query, attribution, refine = '', total = null, onOpen, selectedIndex = -1 }) {
+export default function ResultList({ results, query, attribution, refine = '', total = null, onOpen, selectedIndex = -1, emptyHint = null }) {
   if (!results) return null; // starea „idle" e gestionată de App (Versetul zilei)
 
   if (results.length === 0) {
@@ -13,7 +13,9 @@ export default function ResultList({ results, query, attribution, refine = '', t
       <p className="py-12 text-center text-slate-500 dark:text-slate-400">
         {refine.trim()
           ? `Niciun rezultat pentru „${refine}” în rezultatele curente.`
-          : `Niciun rezultat pentru „${query}”.`}
+          : emptyHint
+            ? emptyHint
+            : `Niciun rezultat pentru „${query}”.`}
       </p>
     );
   }

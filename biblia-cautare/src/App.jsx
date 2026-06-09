@@ -6,6 +6,7 @@ import Reader from './components/Reader.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
+import { parseReference, referenceVerses } from './lib/reference.js';
 import { verseOfDay } from './lib/verseOfDay.js';
 import { parseHash, formatReader } from './lib/hash.js';
 import { loadJSON, saveJSON } from './lib/storage.js';
@@ -237,11 +238,30 @@ export default function App() {
   const chapterCount = book !== 'all' ? counts[book] ?? 0 : 0;
   const attribution = TRANSLATIONS[translation].attribution;
 
+  // Mod referință: query începe cu „@" → aducem un pasaj după referință, nu cuvinte.
+  const refInfo = useMemo(() => {
+    const q = debouncedQuery.trim();
+    if (!q.startsWith('@')) return null;
+    return parseReference(q, TRANSLATIONS[translation]); // {abbrev,...} | {error}
+  }, [debouncedQuery, translation]);
+
   const results = useMemo(() => {
     if (!index || !debouncedQuery.trim()) return null;
+    if (refInfo) {
+      if (refInfo.error) return [];
+      return referenceVerses(TRANSLATIONS[translation], refInfo);
+    }
     const chapterSet = parseChapterSpec(debouncedChapters, chapterCount);
     return search(index, debouncedQuery, { wholeWord, exactPhrase, book, chapters: chapterSet, testament });
-  }, [index, debouncedQuery, wholeWord, exactPhrase, book, debouncedChapters, chapterCount, testament]);
+  }, [index, debouncedQuery, refInfo, translation, wholeWord, exactPhrase, book, debouncedChapters, chapterCount, testament]);
+
+  // Mesaj de gol potrivit pentru modul referință (altfel se folosește cel implicit).
+  const emptyHint = useMemo(() => {
+    if (!refInfo) return null;
+    if (refInfo.error === 'book') return 'Carte negăsită sau ambiguă. Ex: @ioan 3:16';
+    if (refInfo.error) return 'Referință nevalidă. Ex: @ioan 3:16, @isaia 1, @isaia 1:1-10';
+    return 'Capitolul sau versetul nu există în această carte.';
+  }, [refInfo]);
 
   // „Caută în rezultate": îngustează setul curent (AND pe cuvinte, fără diacritice).
   const refinedResults = useMemo(() => {
@@ -395,6 +415,7 @@ export default function App() {
                 total={results.length}
                 onOpen={openReader}
                 selectedIndex={selectedIndex}
+                emptyHint={emptyHint}
               />
             </>
           )}

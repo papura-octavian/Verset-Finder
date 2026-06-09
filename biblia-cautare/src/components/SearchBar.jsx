@@ -29,7 +29,7 @@ export default function SearchBar({
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onCommit()}
         onBlur={onCommit}
-        placeholder="Caută un cuvânt sau o frază…"
+        placeholder="Caută cuvinte, sau @ioan 3:16"
         aria-label="Caută în Biblie"
         aria-keyshortcuts="/"
         autoFocus
