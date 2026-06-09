@@ -18,6 +18,7 @@ export function buildIndex(translation) {
         const text = verses[v];
         index.push({
           abbrev: book.abbrev,
+          testament: meta ? meta.testament : undefined,
           book: name,
           chapter: c + 1,
           verse: v + 1,

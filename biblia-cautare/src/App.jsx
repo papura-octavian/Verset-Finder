@@ -34,6 +34,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [wholeWord, setWholeWord] = useState(false);
   const [exactPhrase, setExactPhrase] = useState(false);
+  const [testament, setTestament] = useState('all');
   const [book, setBook] = useState('all');
   const [chapters, setChapters] = useState('');
   const [history, setHistory] = useState(() => loadJSON(HISTORY_KEY, []));
@@ -121,14 +122,22 @@ export default function App() {
   const results = useMemo(() => {
     if (!index || !debouncedQuery.trim()) return null;
     const chapterSet = parseChapterSpec(debouncedChapters, chapterCount);
-    return search(index, debouncedQuery, { wholeWord, exactPhrase, book, chapters: chapterSet });
-  }, [index, debouncedQuery, wholeWord, exactPhrase, book, debouncedChapters, chapterCount]);
+    return search(index, debouncedQuery, { wholeWord, exactPhrase, book, chapters: chapterSet, testament });
+  }, [index, debouncedQuery, wholeWord, exactPhrase, book, debouncedChapters, chapterCount, testament]);
 
   const votd = useMemo(() => verseOfDay(index), [index]);
 
   // La schimbarea cărții, resetează filtrul de capitole (alt domeniu valid).
   function handleBookChange(value) {
     setBook(value);
+    setChapters('');
+    if (value !== 'all') setTestament('all'); // o carte anume e mai specifică decât VT/NT
+  }
+
+  // Filtru rapid VT/NT: scopează la un testament și resetează cartea (scop unic, coerent).
+  function handleTestamentChange(value) {
+    setTestament(value);
+    setBook('all');
     setChapters('');
   }
 
@@ -196,6 +205,8 @@ export default function App() {
           onWholeWordChange={setWholeWord}
           exactPhrase={exactPhrase}
           onExactPhraseChange={setExactPhrase}
+          testament={testament}
+          onTestamentChange={handleTestamentChange}
           book={book}
           onBookChange={handleBookChange}
           chapters={chapters}

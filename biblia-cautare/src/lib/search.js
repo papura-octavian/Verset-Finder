@@ -103,11 +103,13 @@ function mergeMatches(matches) {
  * @param {object} opts  - { wholeWord, exactPhrase }
  * @returns {Array} [{ ...verse, matches: [{start,end}] }]
  */
-export function search(index, query, { wholeWord = false, exactPhrase = false, book = 'all', chapters = null } = {}) {
+export function search(index, query, { wholeWord = false, exactPhrase = false, book = 'all', chapters = null, testament = 'all' } = {}) {
   const nq = norm(query).trim();
   if (!nq) return [];
 
   const onlyBook = book && book !== 'all' ? book : null;
+  // Filtru rapid VT/NT: se aplică doar când nu e selectată o carte anume.
+  const onlyTestament = !onlyBook && testament && testament !== 'all' ? testament : null;
   // Filtrul pe capitole are sens doar când e selectată o carte anume.
   const chapterSet = onlyBook && chapters instanceof Set && chapters.size ? chapters : null;
   const results = [];
@@ -117,6 +119,7 @@ export function search(index, query, { wholeWord = false, exactPhrase = false, b
     const needle = nq;
     for (const v of index) {
       if (onlyBook && v.abbrev !== onlyBook) continue;
+      if (onlyTestament && v.testament !== onlyTestament) continue;
       if (chapterSet && !chapterSet.has(v.chapter)) continue;
       const matches = findMatches(v.norm, needle, wholeWord);
       if (matches.length) results.push({ ...v, matches });
@@ -126,6 +129,7 @@ export function search(index, query, { wholeWord = false, exactPhrase = false, b
     const tokens = nq.split(/\s+/).filter(Boolean);
     for (const v of index) {
       if (onlyBook && v.abbrev !== onlyBook) continue;
+      if (onlyTestament && v.testament !== onlyTestament) continue;
       if (chapterSet && !chapterSet.has(v.chapter)) continue;
       let allFound = true;
       const all = [];

@@ -6,6 +6,8 @@ export default function SearchBar({
   onWholeWordChange,
   exactPhrase,
   onExactPhraseChange,
+  testament,
+  onTestamentChange,
   book,
   onBookChange,
   chapters,
@@ -35,8 +37,35 @@ export default function SearchBar({
         className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-lg text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300 dark:focus:ring-slate-100/10"
       />
 
-      {/* Rândul 1: carte + capitole */}
+      {/* Rândul 1: filtru rapid VT/NT + carte + capitole */}
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div
+          className="inline-flex rounded-lg border border-slate-300 p-0.5 dark:border-slate-700"
+          role="group"
+          aria-label="Filtru testament"
+        >
+          {[
+            { value: 'all', label: 'Toată Biblia' },
+            { value: 'VT', label: 'Vechiul T.' },
+            { value: 'NT', label: 'Noul T.' },
+          ].map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onTestamentChange(o.value)}
+              aria-pressed={testament === o.value}
+              className={
+                'rounded-md px-2.5 py-1 text-sm transition ' +
+                (testament === o.value
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+              }
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
         <select
           value={book}
           onChange={(e) => onBookChange(e.target.value)}
