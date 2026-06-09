@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookList } from '../data/books.js';
 import { copyText } from '../lib/clipboard.js';
+import { loadJSON, saveJSON } from '../lib/storage.js';
 import {
   getChapterVerses,
   chapterCount,
@@ -8,6 +9,11 @@ import {
   prevChapter,
   nextChapter,
 } from '../lib/reader.js';
+
+// Preferințe de afișare ale cititorului (persistate).
+const READER_PREFS_KEY = 'biblia:reader';
+const SIZES = ['text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl'];
+const DEFAULT_SIZE = 2; // text-lg, confortabil pentru citit
 
 /**
  * Cititorul de capitol (overlay). Controlat de App: primește `target`
@@ -23,6 +29,20 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
   const bodyRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
+
+  // Preferințe de afișare (mărime font + serif), persistate între sesiuni.
+  const [prefs, setPrefs] = useState(() => {
+    const p = loadJSON(READER_PREFS_KEY, null);
+    const size = p && Number.isInteger(p.size) ? Math.min(SIZES.length - 1, Math.max(0, p.size)) : DEFAULT_SIZE;
+    return { size, serif: !!(p && p.serif) };
+  });
+  useEffect(() => {
+    saveJSON(READER_PREFS_KEY, prefs);
+  }, [prefs]);
+
+  const decFont = () => setPrefs((p) => ({ ...p, size: Math.max(0, p.size - 1) }));
+  const incFont = () => setPrefs((p) => ({ ...p, size: Math.min(SIZES.length - 1, p.size + 1) }));
+  const toggleSerif = () => setPrefs((p) => ({ ...p, serif: !p.serif }));
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
 
@@ -162,7 +182,13 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
               Capitol indisponibil.
             </p>
           ) : (
-            <div className="space-y-1.5 leading-relaxed text-slate-700 dark:text-slate-300">
+            <div
+              className={
+                'space-y-1.5 leading-relaxed text-slate-700 dark:text-slate-300 ' +
+                SIZES[prefs.size] +
+                (prefs.serif ? ' font-serif' : '')
+              }
+            >
               {verses.map((text, i) => {
                 const n = i + 1;
                 const isTarget = verse === n;
@@ -189,9 +215,45 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
           )}
         </div>
 
-        {/* Subsol: atribuire */}
-        <div className="border-t border-slate-200 px-4 py-2 text-center text-xs text-slate-400 sm:px-6 dark:border-slate-800 dark:text-slate-500">
-          {translation.label}
+        {/* Subsol: setări de afișare + atribuire */}
+        <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 sm:px-4 dark:border-slate-800">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={decFont}
+              disabled={prefs.size === 0}
+              title="Micșorează textul"
+              aria-label="Micșorează textul"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs leading-none text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              A−
+            </button>
+            <button
+              type="button"
+              onClick={incFont}
+              disabled={prefs.size === SIZES.length - 1}
+              title="Mărește textul"
+              aria-label="Mărește textul"
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm leading-none text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              A+
+            </button>
+            <button
+              type="button"
+              onClick={toggleSerif}
+              aria-pressed={prefs.serif}
+              title="Comută font cu serife"
+              className={
+                'ml-1 rounded-md border px-2 py-1 text-sm leading-none transition ' +
+                (prefs.serif
+                  ? 'border-slate-900 bg-slate-900 font-serif text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                  : 'border-slate-300 font-serif text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+              }
+            >
+              Serif
+            </button>
+          </div>
+          <span className="truncate text-xs text-slate-400 dark:text-slate-500">{translation.label}</span>
         </div>
       </div>
     </div>
