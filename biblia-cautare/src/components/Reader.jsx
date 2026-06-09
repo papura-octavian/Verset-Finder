@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { bookList } from '../data/books.js';
+import { copyText } from '../lib/clipboard.js';
 import {
   getChapterVerses,
   chapterCount,
@@ -20,6 +21,18 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
 
   const verseRef = useRef(null);
   const bodyRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(copyTimer.current), []);
+
+  // Copiază în clipboard link-ul partajabil către poziția curentă (include hash-ul).
+  async function shareLink() {
+    const ok = await copyText(window.location.href);
+    setCopied(ok);
+    clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(false), 1800);
+  }
 
   // Închide cu Escape (prinde înaintea scurtăturilor globale din App).
   useEffect(() => {
@@ -63,15 +76,29 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
             <h2 className="truncate text-lg font-bold text-slate-900 dark:text-slate-100">
               {bookName(translation, abbrev)} {chapter}
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              title="Închide (Esc)"
-              aria-label="Închide cititorul"
-              className="shrink-0 rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-            >
-              <CloseIcon />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              {copied && (
+                <span className="mr-1 text-xs text-emerald-600 dark:text-emerald-400">Link copiat!</span>
+              )}
+              <button
+                type="button"
+                onClick={shareLink}
+                title="Copiază link-ul către acest pasaj"
+                aria-label="Copiază link-ul către acest pasaj"
+                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              >
+                <LinkIcon />
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                title="Închide (Esc)"
+                aria-label="Închide cititorul"
+                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+              >
+                <CloseIcon />
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -168,6 +195,15 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
   );
 }
 
