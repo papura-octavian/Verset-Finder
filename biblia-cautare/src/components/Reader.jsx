@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { bookList } from '../data/books.js';
+import { TRANSLATION_LIST } from '../lib/translations.js';
 import { copyText } from '../lib/clipboard.js';
 import { loadJSON, saveJSON } from '../lib/storage.js';
 import {
@@ -24,6 +25,8 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
   const { abbrev, chapter, verse } = target;
   const verses = getChapterVerses(translation, abbrev, chapter);
   const total = chapterCount(translation, abbrev);
+  // Cealaltă traducere pentru comparație (abrevierile sunt comune între traduceri).
+  const otherTranslation = TRANSLATION_LIST.find((t) => t.id !== translation.id) || null;
 
   const verseRef = useRef(null);
   const bodyRef = useRef(null);
@@ -34,7 +37,7 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
   const [prefs, setPrefs] = useState(() => {
     const p = loadJSON(READER_PREFS_KEY, null);
     const size = p && Number.isInteger(p.size) ? Math.min(SIZES.length - 1, Math.max(0, p.size)) : DEFAULT_SIZE;
-    return { size, serif: !!(p && p.serif) };
+    return { size, serif: !!(p && p.serif), compare: !!(p && p.compare) };
   });
   useEffect(() => {
     saveJSON(READER_PREFS_KEY, prefs);
@@ -43,6 +46,24 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
   const decFont = () => setPrefs((p) => ({ ...p, size: Math.max(0, p.size - 1) }));
   const incFont = () => setPrefs((p) => ({ ...p, size: Math.min(SIZES.length - 1, p.size + 1) }));
   const toggleSerif = () => setPrefs((p) => ({ ...p, serif: !p.serif }));
+  const toggleCompare = () => setPrefs((p) => ({ ...p, compare: !p.compare }));
+
+  // Comparația e activă doar dacă există o a doua traducere ȘI capitolul există acolo.
+  const otherVerses = prefs.compare && otherTranslation
+    ? getChapterVerses(otherTranslation, abbrev, chapter)
+    : null;
+  const compareOn = !!otherVerses;
+
+  // Stil comun pentru o celulă de verset (highlight pe versetul țintă).
+  const cellCls = (isTarget) =>
+    'scroll-mt-4 rounded-md px-1.5 py-0.5 transition-colors ' +
+    (isTarget
+      ? 'bg-yellow-200/70 ring-1 ring-yellow-300 dark:bg-yellow-400/20 dark:ring-yellow-400/40'
+      : '');
+  const textCls =
+    'leading-relaxed text-slate-700 dark:text-slate-300 ' +
+    SIZES[prefs.size] +
+    (prefs.serif ? ' font-serif' : '');
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
 
@@ -181,32 +202,45 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
             <p className="py-12 text-center text-slate-500 dark:text-slate-400">
               Capitol indisponibil.
             </p>
+          ) : compareOn ? (
+            <div className={textCls}>
+              {/* Antet de coloane (traducerile comparate) */}
+              <div className="mb-2 grid grid-cols-2 gap-x-3 sm:gap-x-6">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {translation.attribution}
+                </div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {otherTranslation.attribution}
+                </div>
+              </div>
+              {/* Versete aliniate: stânga = traducerea curentă, dreapta = cealaltă */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:gap-x-6">
+                {Array.from({ length: Math.max(verses.length, otherVerses.length) }, (_, i) => {
+                  const n = i + 1;
+                  const isTarget = verse === n;
+                  return (
+                    <Fragment key={n}>
+                      <p ref={isTarget ? verseRef : null} id={`v${n}`} className={cellCls(isTarget)}>
+                        <Vsup n={n} />
+                        {verses[i] ?? ''}
+                      </p>
+                      <p className={cellCls(isTarget)}>
+                        <Vsup n={n} />
+                        {otherVerses[i] ?? ''}
+                      </p>
+                    </Fragment>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
-            <div
-              className={
-                'space-y-1.5 leading-relaxed text-slate-700 dark:text-slate-300 ' +
-                SIZES[prefs.size] +
-                (prefs.serif ? ' font-serif' : '')
-              }
-            >
+            <div className={'space-y-1.5 ' + textCls}>
               {verses.map((text, i) => {
                 const n = i + 1;
                 const isTarget = verse === n;
                 return (
-                  <p
-                    key={n}
-                    ref={isTarget ? verseRef : null}
-                    id={`v${n}`}
-                    className={
-                      'scroll-mt-4 rounded-md px-1.5 py-0.5 transition-colors ' +
-                      (isTarget
-                        ? 'bg-yellow-200/70 ring-1 ring-yellow-300 dark:bg-yellow-400/20 dark:ring-yellow-400/40'
-                        : '')
-                    }
-                  >
-                    <sup className="mr-1 select-none align-baseline text-xs font-semibold text-slate-400 dark:text-slate-500">
-                      {n}
-                    </sup>
+                  <p key={n} ref={isTarget ? verseRef : null} id={`v${n}`} className={cellCls(isTarget)}>
+                    <Vsup n={n} />
                     {text}
                   </p>
                 );
@@ -252,11 +286,48 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
             >
               Serif
             </button>
+            {otherTranslation && (
+              <button
+                type="button"
+                onClick={toggleCompare}
+                aria-pressed={prefs.compare}
+                title={`Compară cu ${otherTranslation.attribution} (lângă lângă)`}
+                aria-label={`Compară cu ${otherTranslation.attribution}`}
+                className={
+                  'ml-1 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs leading-none transition ' +
+                  (prefs.compare
+                    ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+                }
+              >
+                <ColumnsIcon />
+                {otherTranslation.attribution}
+              </button>
+            )}
           </div>
-          <span className="truncate text-xs text-slate-400 dark:text-slate-500">{translation.label}</span>
+          {!compareOn && (
+            <span className="truncate text-xs text-slate-400 dark:text-slate-500">{translation.label}</span>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function Vsup({ n }) {
+  return (
+    <sup className="mr-1 select-none align-baseline text-xs font-semibold text-slate-400 dark:text-slate-500">
+      {n}
+    </sup>
+  );
+}
+
+function ColumnsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M12 3v18" />
+    </svg>
   );
 }
 
