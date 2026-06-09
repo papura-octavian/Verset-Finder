@@ -7,6 +7,7 @@ import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
 import { verseOfDay } from './lib/verseOfDay.js';
+import { parseHash, formatReader } from './lib/hash.js';
 import { loadJSON, saveJSON } from './lib/storage.js';
 import { TRANSLATIONS, TRANSLATION_LIST, DEFAULT_TRANSLATION } from './lib/translations.js';
 import { bookList as toBookList } from './data/books.js';
@@ -55,6 +56,11 @@ export default function App() {
   useEffect(() => {
     readerRef.current = reader;
   }, [reader]);
+  // Oglindă a traducerii curente (pentru applyHash cu deps stabile).
+  const translationRef = useRef(translation);
+  useEffect(() => {
+    translationRef.current = translation;
+  }, [translation]);
 
   // Index construit la cerere pentru traducerea activă, păstrat în cache (switch instant).
   const indexCache = useRef({});
@@ -121,6 +127,73 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  // Aplică un hash de URL pe stare (deep-link, reload, back/forward, editare manuală).
+  // Validează semantic (traducere/carte/capitol/verset există) — hash.js doar parsează.
+  const applyHash = useCallback((raw) => {
+    const parsed = parseHash(raw);
+    if (!parsed) {
+      if (readerRef.current) setReader(null); // back către o stare fără cititor
+      return;
+    }
+    const wanted = TRANSLATIONS[parsed.translation] ? parsed.translation : translationRef.current;
+    if (parsed.type === 'reader') {
+      const book = TRANSLATIONS[wanted].data.find((b) => b.abbrev === parsed.abbrev);
+      if (!book) return;
+      if (parsed.chapter < 1 || parsed.chapter > book.chapters.length) return;
+      let verse = parsed.verse;
+      if (verse != null) {
+        const vs = book.chapters[parsed.chapter - 1];
+        if (!vs || verse < 1 || verse > vs.length) verse = null;
+      }
+      const cur = readerRef.current;
+      const same = cur && cur.abbrev === parsed.abbrev && cur.chapter === parsed.chapter && cur.verse === verse;
+      if (wanted !== translationRef.current) setTranslation(wanted);
+      if (!same) setReader({ abbrev: parsed.abbrev, chapter: parsed.chapter, verse });
+    } else {
+      // type === 'search': reia căutarea din link
+      if (wanted !== translationRef.current) setTranslation(wanted);
+      if (readerRef.current) setReader(null);
+      setQuery(parsed.query);
+    }
+  }, []);
+
+  // La montare: deep-link / reload.
+  useEffect(() => {
+    applyHash(window.location.hash);
+  }, [applyHash]);
+
+  // Back/forward sau editare manuală a hash-ului (writerele noastre folosesc
+  // push/replaceState, care NU declanșează hashchange → fără bucle).
+  useEffect(() => {
+    function onHashChange() {
+      applyHash(window.location.hash);
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [applyHash]);
+
+  // Scrie starea cititorului în URL: push o singură intrare la deschidere (ca Back
+  // să închidă cititorul), apoi replace în timpul navigării (fără a umple istoricul).
+  const wasReaderOpenRef = useRef(false);
+  useEffect(() => {
+    if (reader) {
+      const h = formatReader(translation, reader.abbrev, reader.chapter, reader.verse);
+      if (window.location.hash !== h) {
+        if (wasReaderOpenRef.current) window.history.replaceState(null, '', h);
+        else window.history.pushState(null, '', h);
+      }
+      wasReaderOpenRef.current = true;
+    } else {
+      if (wasReaderOpenRef.current) {
+        const cur = parseHash(window.location.hash);
+        if (cur && cur.type === 'reader') {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+      wasReaderOpenRef.current = false;
+    }
+  }, [reader, translation]);
 
   const debouncedQuery = useDebounced(query, 150);
   const debouncedChapters = useDebounced(chapters, 150);
