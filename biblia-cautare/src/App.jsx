@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchBar from './components/SearchBar.jsx';
 import SearchHistory from './components/SearchHistory.jsx';
 import ResultList from './components/ResultList.jsx';
+import Reader from './components/Reader.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
@@ -38,6 +39,8 @@ export default function App() {
   const [book, setBook] = useState('all');
   const [chapters, setChapters] = useState('');
   const [refine, setRefine] = useState('');
+  // Cititorul: { abbrev, chapter, verse|null } sau null (închis).
+  const [reader, setReader] = useState(null);
   const [history, setHistory] = useState(() => loadJSON(HISTORY_KEY, []));
   const [dark, setDark] = useState(() => {
     const stored = loadJSON(DARK_KEY, null);
@@ -47,6 +50,11 @@ export default function App() {
 
   // Câmpul de căutare (pentru scurtătura „/").
   const searchInputRef = useRef(null);
+  // Oglindă a stării cititorului pentru handler-ul global de taste (deps []).
+  const readerRef = useRef(null);
+  useEffect(() => {
+    readerRef.current = reader;
+  }, [reader]);
 
   // Index construit la cerere pentru traducerea activă, păstrat în cache (switch instant).
   const indexCache = useRef({});
@@ -86,6 +94,8 @@ export default function App() {
   // Scurtături de tastatură: „/" focus pe căutare, „Esc" golește / iese din câmp.
   useEffect(() => {
     function onKeyDown(e) {
+      // Cât timp cititorul e deschis, el își gestionează tastele (Esc închide).
+      if (readerRef.current) return;
       const el = document.activeElement;
       const tag = el?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable;
@@ -147,6 +157,11 @@ export default function App() {
     setChapters('');
     if (value !== 'all') setTestament('all'); // o carte anume e mai specifică decât VT/NT
   }
+
+  // Deschide cititorul la versetul dintr-un rezultat (sau orice { abbrev, chapter, verse }).
+  const openReader = useCallback((r) => {
+    setReader({ abbrev: r.abbrev, chapter: r.chapter, verse: r.verse ?? null });
+  }, []);
 
   // Filtru rapid VT/NT: scopează la un testament și resetează cartea (scop unic, coerent).
   function handleTestamentChange(value) {
@@ -258,11 +273,21 @@ export default function App() {
                 attribution={attribution}
                 refine={refine}
                 total={results.length}
+                onOpen={openReader}
               />
             </>
           )}
         </div>
       </div>
+
+      {reader && (
+        <Reader
+          translation={TRANSLATIONS[translation]}
+          target={reader}
+          onNavigate={setReader}
+          onClose={() => setReader(null)}
+        />
+      )}
     </div>
   );
 }

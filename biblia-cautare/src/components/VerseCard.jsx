@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText } from '../lib/clipboard.js';
 
-export default function VerseCard({ result, attribution }) {
+export default function VerseCard({ result, attribution, onOpen }) {
   const [feedback, setFeedback] = useState('');
   const timer = useRef(null);
 
@@ -23,11 +23,21 @@ export default function VerseCard({ result, attribution }) {
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{result.ref}</span>
+        <button
+          type="button"
+          onClick={() => onOpen?.(result)}
+          title="Deschide capitolul în cititor"
+          className="rounded text-left text-sm font-semibold text-slate-900 underline-offset-2 transition hover:text-slate-600 hover:underline dark:text-slate-100 dark:hover:text-slate-300"
+        >
+          {result.ref}
+        </button>
         <div className="flex items-center gap-1">
           {feedback && (
             <span className="mr-1 text-xs text-emerald-600 dark:text-emerald-400">{feedback}</span>
           )}
+          <IconButton label="Deschide în cititor" onClick={() => onOpen?.(result)}>
+            <BookOpenIcon />
+          </IconButton>
           <IconButton label="Copiază versetul" onClick={handleCopy}>
             <CopyIcon />
           </IconButton>
@@ -77,6 +87,15 @@ function renderHighlighted(text, matches) {
   });
   if (last < text.length) parts.push(text.slice(last));
   return parts;
+}
+
+function BookOpenIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
 }
 
 function CopyIcon() {
