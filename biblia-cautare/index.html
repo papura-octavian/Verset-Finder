@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verset Finder</title>
+    <script>
+      // Setează tema înainte de prima randare ca să nu pâlpâie (anti-FOUC).
+      try {
+        var d = localStorage.getItem('biblia:dark');
+        var dark = d === null
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          : d === 'true';
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
