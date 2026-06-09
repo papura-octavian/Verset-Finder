@@ -1,7 +1,8 @@
 // Schema URL cu hash — UN SINGUR loc de parse/format pentru întreaga aplicație.
 //
-// Două forme:
-//   #<trad>/<carte>.<capitol>[.<verset>]   → cititor (ex. #vdc/jo.3.16, #vdc/ps.23)
+// Trei forme:
+//   #<trad>/<carte>.<capitol>[.<verset>]   → cititor-overlay (ex. #vdc/jo.3.16, #vdc/ps.23)
+//   #<trad>/r/<carte>.<capitol>[.<verset>] → pagina Citește (ex. #vdc/r/jo.3)
 //   #<trad>/q=<căutare>                     → căutare reluată din link (ex. #vdc/q=credinta)
 //
 // Notă: abrevierile de cărți pot conține cifre (1sm, 2co, 1jo), dar NICIODATĂ punct,
@@ -15,7 +16,7 @@
  * Parsează un hash de URL într-o stare structurată.
  * @param {string} raw - ex. „#vdc/jo.3.16" sau „vdc/q=credinta" (cu sau fără „#").
  * @returns {null
- *   | { type: 'reader', translation: string, abbrev: string, chapter: number, verse: number|null }
+ *   | { type: 'reader'|'read', translation: string, abbrev: string, chapter: number, verse: number|null }
  *   | { type: 'search', translation: string, query: string }}
  */
 export function parseHash(raw) {
@@ -27,7 +28,7 @@ export function parseHash(raw) {
   if (slash === -1) return null;
 
   const translation = h.slice(0, slash);
-  const rest = h.slice(slash + 1);
+  let rest = h.slice(slash + 1);
   if (!translation || !rest) return null;
 
   // Formă căutare: #<trad>/q=<encoded>
@@ -43,7 +44,15 @@ export function parseHash(raw) {
     return { type: 'search', translation, query };
   }
 
-  // Formă cititor: <carte>.<capitol>[.<verset>]
+  // Formă pagina Citește: r/<carte>.<capitol>[.<verset>]
+  let type = 'reader';
+  if (rest.startsWith('r/')) {
+    type = 'read';
+    rest = rest.slice(2);
+    if (!rest) return null;
+  }
+
+  // Referință: <carte>.<capitol>[.<verset>]
   const parts = rest.split('.');
   if (parts.length < 2) return null;
 
@@ -57,7 +66,7 @@ export function parseHash(raw) {
     if (!Number.isInteger(verse) || verse < 1) return null;
   }
 
-  return { type: 'reader', translation, abbrev, chapter, verse };
+  return { type, translation, abbrev, chapter, verse };
 }
 
 /**
@@ -70,6 +79,16 @@ export function parseHash(raw) {
  */
 export function formatReader(translation, abbrev, chapter, verse = null) {
   let h = `#${translation}/${abbrev}.${chapter}`;
+  if (verse != null) h += `.${verse}`;
+  return h;
+}
+
+/**
+ * Construiește un hash pentru pagina Citește.
+ * @returns {string} ex. „#vdc/r/jo.3" sau „#vdc/r/jo.3.16"
+ */
+export function formatRead(translation, abbrev, chapter, verse = null) {
+  let h = `#${translation}/r/${abbrev}.${chapter}`;
   if (verse != null) h += `.${verse}`;
   return h;
 }

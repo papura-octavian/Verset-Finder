@@ -3,12 +3,14 @@ import SearchBar from './components/SearchBar.jsx';
 import SearchHistory from './components/SearchHistory.jsx';
 import ResultList from './components/ResultList.jsx';
 import Reader from './components/Reader.jsx';
+import ChapterView from './components/ChapterView.jsx';
+import NavDrawer from './components/NavDrawer.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
 import { parseReference, referenceVerses } from './lib/reference.js';
 import { verseOfDay } from './lib/verseOfDay.js';
-import { parseHash, formatReader } from './lib/hash.js';
+import { parseHash, formatReader, formatRead } from './lib/hash.js';
 import { loadJSON, saveJSON } from './lib/storage.js';
 import { TRANSLATIONS, TRANSLATION_LIST, DEFAULT_TRANSLATION } from './lib/translations.js';
 import { bookList as toBookList } from './data/books.js';
@@ -17,6 +19,7 @@ import logo from './assets/logo.png';
 const HISTORY_KEY = 'biblia:history';
 const DARK_KEY = 'biblia:dark';
 const TRANS_KEY = 'biblia:translation';
+const READ_KEY = 'biblia:read';
 const HISTORY_MAX = 12;
 
 function useDebounced(value, delay) {
@@ -43,6 +46,17 @@ export default function App() {
   const [refine, setRefine] = useState('');
   // Cititorul: { abbrev, chapter, verse|null } sau null (închis).
   const [reader, setReader] = useState(null);
+  // Pagina activă: 'search' (căutare) sau 'read' (citire).
+  const [view, setView] = useState('search');
+  // Poziția pe pagina Citește; persistată ca să reia ultima poziție.
+  const [readPos, setReadPos] = useState(() => {
+    const p = loadJSON(READ_KEY, null);
+    return p && p.abbrev && Number.isInteger(p.chapter)
+      ? { abbrev: p.abbrev, chapter: p.chapter, verse: p.verse ?? null }
+      : { abbrev: 'gn', chapter: 1, verse: null };
+  });
+  // Sertarul de navigație (☰).
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // Rezultatul selectat cu tastatura (↑↓); -1 = niciunul.
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [history, setHistory] = useState(() => loadJSON(HISTORY_KEY, []));
@@ -67,6 +81,15 @@ export default function App() {
   // Oglinzi pentru navigarea cu tastatura prin rezultate (handler cu deps []).
   const selectedIndexRef = useRef(-1);
   const refinedRef = useRef(null);
+  // Oglinzi pentru pagina activă și sertar (scurtăturile rulează doar pe Caută).
+  const viewRef = useRef(view);
+  const drawerOpenRef = useRef(false);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+  useEffect(() => {
+    drawerOpenRef.current = drawerOpen;
+  }, [drawerOpen]);
 
   // Index construit la cerere pentru traducerea activă, păstrat în cache (switch instant).
   const indexCache = useRef({});
@@ -106,8 +129,9 @@ export default function App() {
   // Scurtături de tastatură: „/" focus pe căutare, „Esc" golește / iese din câmp.
   useEffect(() => {
     function onKeyDown(e) {
-      // Cât timp cititorul e deschis, el își gestionează tastele (Esc închide).
-      if (readerRef.current) return;
+      // Cât timp cititorul/sertarul sunt deschise, ele își gestionează tastele (Esc).
+      // Scurtăturile de căutare au sens doar pe pagina Caută.
+      if (readerRef.current || drawerOpenRef.current || viewRef.current !== 'search') return;
       const el = document.activeElement;
       const tag = el?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable;
@@ -172,7 +196,7 @@ export default function App() {
       return;
     }
     const wanted = TRANSLATIONS[parsed.translation] ? parsed.translation : translationRef.current;
-    if (parsed.type === 'reader') {
+    if (parsed.type === 'reader' || parsed.type === 'read') {
       const book = TRANSLATIONS[wanted].data.find((b) => b.abbrev === parsed.abbrev);
       if (!book) return;
       if (parsed.chapter < 1 || parsed.chapter > book.chapters.length) return;
@@ -181,14 +205,25 @@ export default function App() {
         const vs = book.chapters[parsed.chapter - 1];
         if (!vs || verse < 1 || verse > vs.length) verse = null;
       }
-      const cur = readerRef.current;
-      const same = cur && cur.abbrev === parsed.abbrev && cur.chapter === parsed.chapter && cur.verse === verse;
       if (wanted !== translationRef.current) setTranslation(wanted);
-      if (!same) setReader({ abbrev: parsed.abbrev, chapter: parsed.chapter, verse });
+      const pos = { abbrev: parsed.abbrev, chapter: parsed.chapter, verse };
+      if (parsed.type === 'read') {
+        // Pagina Citește: navighează acolo și închide overlay-ul dacă era deschis.
+        setView('read');
+        setReadPos(pos);
+        if (readerRef.current) setReader(null);
+      } else {
+        // Cititorul-overlay (peste pagina Caută).
+        setView('search');
+        const cur = readerRef.current;
+        const same = cur && cur.abbrev === pos.abbrev && cur.chapter === pos.chapter && cur.verse === verse;
+        if (!same) setReader(pos);
+      }
     } else {
       // type === 'search': reia căutarea din link
       if (wanted !== translationRef.current) setTranslation(wanted);
       if (readerRef.current) setReader(null);
+      setView('search');
       setQuery(parsed.query);
     }
   }, []);
@@ -229,6 +264,25 @@ export default function App() {
       wasReaderOpenRef.current = false;
     }
   }, [reader, translation]);
+
+  // Persistă poziția de citire (pagina Citește reia de unde ai rămas).
+  useEffect(() => {
+    saveJSON(READ_KEY, readPos);
+  }, [readPos]);
+
+  // Scrie starea paginii Citește în URL (replace — fără spam în istoric).
+  // Nu se atinge de hash-urile overlay-ului (acelea sunt gestionate mai sus).
+  useEffect(() => {
+    if (view === 'read') {
+      const h = formatRead(translation, readPos.abbrev, readPos.chapter, readPos.verse);
+      if (window.location.hash !== h) window.history.replaceState(null, '', h);
+    } else {
+      const cur = parseHash(window.location.hash);
+      if (cur && cur.type === 'read') {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+  }, [view, readPos, translation]);
 
   const debouncedQuery = useDebounced(query, 150);
   const debouncedChapters = useDebounced(chapters, 150);
@@ -330,13 +384,25 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              title="Deschide meniul"
+              aria-label="Deschide meniul de navigație"
+              aria-expanded={drawerOpen}
+              className="shrink-0 rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <MenuIcon />
+            </button>
             <img
               src={logo}
               alt="Verset Finder"
               className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200 sm:h-14 sm:w-14 dark:ring-slate-700"
             />
-            <h1 className="text-2xl font-bold tracking-tight">Verset Finder</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {view === 'read' ? 'Citește' : 'Verset Finder'}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -366,61 +432,82 @@ export default function App() {
           </div>
         </header>
 
-        <SearchBar
-          query={query}
-          onQueryChange={setQuery}
-          onCommit={commitToHistory}
-          wholeWord={wholeWord}
-          onWholeWordChange={setWholeWord}
-          exactPhrase={exactPhrase}
-          onExactPhraseChange={setExactPhrase}
-          testament={testament}
-          onTestamentChange={handleTestamentChange}
-          book={book}
-          onBookChange={handleBookChange}
-          chapters={chapters}
-          onChaptersChange={setChapters}
-          chapterCount={chapterCount}
-          bookList={books}
-          inputRef={searchInputRef}
-        />
+        {view === 'read' ? (
+          /* Pagina Citește: același renderer de capitol ca overlay-ul, în pagină. */
+          <div className="mx-auto max-w-2xl">
+            <ChapterView
+              translation={TRANSLATIONS[translation]}
+              target={readPos}
+              onNavigate={setReadPos}
+              pageMode
+            />
+          </div>
+        ) : (
+          <>
+            <SearchBar
+              query={query}
+              onQueryChange={setQuery}
+              onCommit={commitToHistory}
+              wholeWord={wholeWord}
+              onWholeWordChange={setWholeWord}
+              exactPhrase={exactPhrase}
+              onExactPhraseChange={setExactPhrase}
+              testament={testament}
+              onTestamentChange={handleTestamentChange}
+              book={book}
+              onBookChange={handleBookChange}
+              chapters={chapters}
+              onChaptersChange={setChapters}
+              chapterCount={chapterCount}
+              bookList={books}
+              inputRef={searchInputRef}
+            />
 
-        <SearchHistory history={history} onSelect={setQuery} onClear={clearHistory} />
+            <SearchHistory history={history} onSelect={setQuery} onClear={clearHistory} />
 
-        <div className="mt-6" role="region" aria-label="Rezultatele căutării">
-          {!index ? (
-            <p className="py-12 text-center text-slate-400 dark:text-slate-500">Se încarcă Biblia…</p>
-          ) : results === null ? (
-            <VerseOfDay verse={votd} attribution={attribution} />
-          ) : (
-            <>
-              {results.length > 0 && (
-                <div className="mb-3">
-                  <input
-                    type="text"
-                    value={refine}
-                    onChange={(e) => setRefine(e.target.value)}
-                    placeholder="Caută în rezultate…"
-                    aria-label="Caută în rezultate"
-                    spellCheck={false}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
+            <div className="mt-6" role="region" aria-label="Rezultatele căutării">
+              {!index ? (
+                <p className="py-12 text-center text-slate-400 dark:text-slate-500">Se încarcă Biblia…</p>
+              ) : results === null ? (
+                <VerseOfDay verse={votd} attribution={attribution} />
+              ) : (
+                <>
+                  {results.length > 0 && (
+                    <div className="mb-3">
+                      <input
+                        type="text"
+                        value={refine}
+                        onChange={(e) => setRefine(e.target.value)}
+                        placeholder="Caută în rezultate…"
+                        aria-label="Caută în rezultate"
+                        spellCheck={false}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
+                      />
+                    </div>
+                  )}
+                  <ResultList
+                    results={refinedResults}
+                    query={debouncedQuery}
+                    attribution={attribution}
+                    refine={refine}
+                    total={results.length}
+                    onOpen={openReader}
+                    selectedIndex={selectedIndex}
+                    emptyHint={emptyHint}
                   />
-                </div>
+                </>
               )}
-              <ResultList
-                results={refinedResults}
-                query={debouncedQuery}
-                attribution={attribution}
-                refine={refine}
-                total={results.length}
-                onOpen={openReader}
-                selectedIndex={selectedIndex}
-                emptyHint={emptyHint}
-              />
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
+
+      <NavDrawer
+        open={drawerOpen}
+        view={view}
+        onNavigate={setView}
+        onClose={() => setDrawerOpen(false)}
+      />
 
       {reader && (
         <Reader
@@ -431,6 +518,14 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
   );
 }
 
