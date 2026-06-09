@@ -37,6 +37,7 @@ export default function App() {
   const [testament, setTestament] = useState('all');
   const [book, setBook] = useState('all');
   const [chapters, setChapters] = useState('');
+  const [refine, setRefine] = useState('');
   const [history, setHistory] = useState(() => loadJSON(HISTORY_KEY, []));
   const [dark, setDark] = useState(() => {
     const stored = loadJSON(DARK_KEY, null);
@@ -124,6 +125,19 @@ export default function App() {
     const chapterSet = parseChapterSpec(debouncedChapters, chapterCount);
     return search(index, debouncedQuery, { wholeWord, exactPhrase, book, chapters: chapterSet, testament });
   }, [index, debouncedQuery, wholeWord, exactPhrase, book, debouncedChapters, chapterCount, testament]);
+
+  // „Caută în rezultate": îngustează setul curent (AND pe cuvinte, fără diacritice).
+  const refinedResults = useMemo(() => {
+    if (!results) return results;
+    const tokens = norm(refine).trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return results;
+    return results.filter((v) => tokens.every((t) => v.norm.includes(t)));
+  }, [results, refine]);
+
+  // La fiecare căutare/filtrare nouă de bază, golește „caută în rezultate".
+  useEffect(() => {
+    setRefine('');
+  }, [results]);
 
   const votd = useMemo(() => verseOfDay(index), [index]);
 
@@ -224,7 +238,28 @@ export default function App() {
           ) : results === null ? (
             <VerseOfDay verse={votd} attribution={attribution} />
           ) : (
-            <ResultList results={results} query={debouncedQuery} attribution={attribution} />
+            <>
+              {results.length > 0 && (
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={refine}
+                    onChange={(e) => setRefine(e.target.value)}
+                    placeholder="Caută în rezultate…"
+                    aria-label="Caută în rezultate"
+                    spellCheck={false}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
+                  />
+                </div>
+              )}
+              <ResultList
+                results={refinedResults}
+                query={debouncedQuery}
+                attribution={attribution}
+                refine={refine}
+                total={results.length}
+              />
+            </>
           )}
         </div>
       </div>
