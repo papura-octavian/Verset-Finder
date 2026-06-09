@@ -42,6 +42,8 @@ export default function App() {
   const [refine, setRefine] = useState('');
   // Cititorul: { abbrev, chapter, verse|null } sau null (închis).
   const [reader, setReader] = useState(null);
+  // Rezultatul selectat cu tastatura (↑↓); -1 = niciunul.
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [history, setHistory] = useState(() => loadJSON(HISTORY_KEY, []));
   const [dark, setDark] = useState(() => {
     const stored = loadJSON(DARK_KEY, null);
@@ -61,6 +63,9 @@ export default function App() {
   useEffect(() => {
     translationRef.current = translation;
   }, [translation]);
+  // Oglinzi pentru navigarea cu tastatura prin rezultate (handler cu deps []).
+  const selectedIndexRef = useRef(-1);
+  const refinedRef = useRef(null);
 
   // Index construit la cerere pentru traducerea activă, păstrat în cache (switch instant).
   const indexCache = useRef({});
@@ -110,6 +115,35 @@ export default function App() {
         e.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
+        return;
+      }
+
+      // ↑↓ prin rezultate; activ și când scrii în câmpul principal de căutare.
+      const list = refinedRef.current;
+      const hasResults = Array.isArray(list) && list.length > 0;
+      const inSearchInput = el === searchInputRef.current;
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hasResults && (!typing || inSearchInput)) {
+        e.preventDefault();
+        if (inSearchInput) searchInputRef.current.blur();
+        setSelectedIndex((i) => {
+          if (e.key === 'ArrowDown') return Math.min((i < 0 ? -1 : i) + 1, list.length - 1);
+          const ni = i - 1;
+          if (ni < 0) {
+            searchInputRef.current?.focus();
+            return -1;
+          }
+          return ni;
+        });
+        return;
+      }
+
+      // Enter deschide rezultatul selectat (când focusul nu e într-un câmp).
+      if (e.key === 'Enter' && !typing && hasResults && selectedIndexRef.current >= 0) {
+        const r = list[selectedIndexRef.current];
+        if (r) {
+          e.preventDefault();
+          openReader(r);
+        }
         return;
       }
 
@@ -221,6 +255,19 @@ export default function App() {
   useEffect(() => {
     setRefine('');
   }, [results]);
+
+  // Oglindă pentru handler-ul de tastatură + reset selecție la schimbarea setului.
+  useEffect(() => {
+    refinedRef.current = refinedResults;
+    setSelectedIndex(-1);
+  }, [refinedResults]);
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+    if (selectedIndex >= 0) {
+      const el = document.querySelector(`[data-result-index="${selectedIndex}"]`);
+      el?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
 
   const votd = useMemo(() => verseOfDay(index), [index]);
 
@@ -347,6 +394,7 @@ export default function App() {
                 refine={refine}
                 total={results.length}
                 onOpen={openReader}
+                selectedIndex={selectedIndex}
               />
             </>
           )}

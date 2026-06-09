@@ -5,7 +5,7 @@ import VerseCard from './VerseCard.jsx';
 // react-window — vezi planul §7.)
 const MAX_RENDER = 500;
 
-export default function ResultList({ results, query, attribution, refine = '', total = null, onOpen }) {
+export default function ResultList({ results, query, attribution, refine = '', total = null, onOpen, selectedIndex = -1 }) {
   if (!results) return null; // starea „idle" e gestionată de App (Versetul zilei)
 
   if (results.length === 0) {
@@ -29,8 +29,15 @@ export default function ResultList({ results, query, attribution, refine = '', t
         {results.length > MAX_RENDER && ` · afișez primele ${MAX_RENDER}`}
       </p>
       <ul className="space-y-3">
-        {shown.map((r) => (
-          <VerseCard key={`${r.abbrev}-${r.chapter}-${r.verse}`} result={r} attribution={attribution} onOpen={onOpen} />
+        {shown.map((r, i) => (
+          <VerseCard
+            key={`${r.abbrev}-${r.chapter}-${r.verse}`}
+            result={r}
+            attribution={attribution}
+            onOpen={onOpen}
+            index={i}
+            selected={i === selectedIndex}
+          />
         ))}
       </ul>
     </div>

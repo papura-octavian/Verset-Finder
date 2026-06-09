@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText } from '../lib/clipboard.js';
 
-export default function VerseCard({ result, attribution, onOpen }) {
+export default function VerseCard({ result, attribution, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
   const timer = useRef(null);
 
@@ -21,7 +21,15 @@ export default function VerseCard({ result, attribution, onOpen }) {
   }
 
   return (
-    <li className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <li
+      data-result-index={index}
+      className={
+        'rounded-xl border bg-white p-4 shadow-sm transition dark:bg-slate-900 ' +
+        (selected
+          ? 'border-slate-900 ring-2 ring-slate-900/20 dark:border-slate-100 dark:ring-slate-100/20'
+          : 'border-slate-200 dark:border-slate-800')
+      }
+    >
       <div className="mb-1 flex items-center justify-between gap-3">
         <button
           type="button"
