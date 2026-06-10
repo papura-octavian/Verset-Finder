@@ -1,24 +1,11 @@
-# Caută în Biblie — Cornilescu (VDC 1924)
+# Verset Finder — aplicația
 
-Web app **statică** pentru căutarea de cuvinte / fraze în Biblie. Traducere
-selectabilă: **Cornilescu (VDC 1924)** sau **King James Version (KJV)**. Funcționează
-**offline** (un singur `index.html`, deschis prin dublu-click) și se poate **publica
-online** (GitHub Pages / Netlify / Vercel). Fără backend.
+Web app **statică** (React + Vite + Tailwind) pentru căutare în Biblie, studiu și
+predici. Traduceri: **Cornilescu corectată (RCCV)** și **American Standard
+Version (ASV)**. Funcționează **offline** (un singur `index.html`, deschis prin
+dublu-click) și **online** (GitHub Pages — versetfinder.study). Fără backend.
 
-## Funcții
-
-- **Fără diacritice** (mereu activ): „credinta” găsește „credinţă”, „pamint” găsește „pămînt”.
-  Acoperă și ortografia veche cu sedilă (`ş`, `ţ`) și `î/â`.
-- **Cuvânt întreg** (toggle): ON → „har” nu mai prinde „harul”; OFF → căutare parțială.
-- **Frază exactă** (toggle): ON → tot textul ca un singur șir; OFF → toate cuvintele (AND), în orice ordine.
-- **Filtru pe carte + capitole**: limitează la o carte (grupate VT / NT) și, opțional, la anumite capitole (`1-3, 5, 8-10`).
-- **Selector de traducere** (antet, lângă dark mode): alegi Biblia în care cauți — Cornilescu (VDC 1924) sau King James Version. Referințele și numele cărților sunt în limba traducerii (ex. „Ioan 3:16" vs „John 3:16"). Alegerea se păstrează local. Ușor de extins — vezi `src/lib/translations.js`.
-- **Istoric căutări**: termenii confirmați (Enter / la ieșirea din câmp) se salvează local și pot fi reluați cu un clic.
-- **Copiere verset**: buton care copiază în clipboard `referință — text (traducere)`.
-- **Dark mode**: comutator în antet, persistat local, respectă `prefers-color-scheme` la prima vizită (fără pâlpâire).
-- Highlight pe termenii găsiți + referința (Carte cap:vers).
-
-Preferințele (istoric, temă) se păstrează în `localStorage` și funcționează și offline pe `file://`.
+Lista completă de funcții: vezi [README-ul principal](../README.md).
 
 ## Dezvoltare
 
@@ -34,39 +21,38 @@ npm run build    # => dist/index.html (totul inline într-un singur fișier)
 ```
 
 - **Offline:** deschide `dist/index.html` prin dublu-click — fără server, fără internet.
-- **Online:** urcă conținutul din `dist/` pe orice hosting static.
+- **Online:** publicat automat pe GitHub Pages prin `.github/workflows/static.yml`.
 
-## Publicare pe GitHub Pages
+## Date (regenerare)
 
-`vite.config.js` folosește `base: './'` (căi relative) + single-file, deci merge și pe
-sub-cale de tip `https://utilizator.github.io/repo/`, fără configurări suplimentare.
+Sursele brute stau local în `../data-src/` (nu intră în git — vezi
+`../THIRD_PARTY_NOTICES.md` pentru proveniență și licențe):
 
-Cea mai simplă variantă (un singur fișier de urcat):
-
-1. `npm run build` → obții `dist/index.html`.
-2. Creează un repo pe GitHub și pune acolo acel `index.html` (în rădăcină sau în `/docs`).
-3. **Settings → Pages →** sursă: branch `main`, folder `/ (root)` (sau `/docs`).
-4. Gata: linkul `https://utilizator.github.io/repo/` e accesibil de pe telefon, tabletă, laptop, PC.
-
-Alternativ, poți comite tot proiectul și construi automat cu un workflow GitHub Actions
-(build → publică `dist/`), dar pentru un singur fișier pasul manual e suficient.
+```bash
+node scripts/convertBibles.mjs    # ron-rccv.usfx.xml + eng-asv.zefania.xml → src/data/{rccv,asv}.json
+node scripts/buildCrossRefs.mjs   # cross_references.txt (openbible.info) → src/data/crossrefs.json
+```
 
 ## Structură
 
-- `src/data/ro_cornilescu.json` / `src/data/en_kjv.json` — textele Bibliei RO / EN (sursă: [thiagobodruk/bible](https://github.com/thiagobodruk/bible)).
-- `src/lib/translations.js` — registrul traducerilor selectabile. Adaugi una nouă aici.
-- `src/assets/logo.png` — logo „Verset Finder" (inline în build, folosit și ca favicon).
-- `src/data/books.js` — mapări `abbrev → { nume, testament, ordine }` RO + EN (66 de cărți) + `bookList()`.
-- `src/lib/buildIndex.js` — aplatizează o traducere în index + precalculează `norm`.
-- `src/lib/search.js` — normalizare diacritice + filtrare cu toggle-uri + carte/capitole.
-- `src/lib/storage.js` — citire/scriere sigură în `localStorage` (istoric, temă).
-- `src/lib/clipboard.js` — copiere + Web Share API cu fallback-uri.
-- `src/components/` — `SearchBar`, `SearchHistory`, `ResultList`, `VerseCard`.
+- `src/data/rccv.json` / `src/data/asv.json` — textele Bibliei RO / EN (generate).
+- `src/data/crossrefs.json` — trimiterile, top ~10 per verset (generate).
+- `src/data/books.js` — mapări `abbrev → { nume, testament, ordine }` RO + EN (66 cărți).
+- `src/lib/translations.js` — registrul traducerilor selectabile.
+- `src/lib/hash.js` — schema URL cu hash (`#rccv/jo.3.16`, `#rccv/r/jo.3`, `#rccv/q=...`),
+  cu aliasuri pentru id-urile vechi (`vdc`→`rccv`, `kjv`→`asv`).
+- `src/lib/buildIndex.js` / `search.js` — indexul de căutare + normalizare diacritice.
+- `src/lib/reference.js` — căutarea după referință (`@ioan 3:16`).
+- `src/lib/reader.js` — acces text pe capitol + navigare carte↔capitol.
+- `src/lib/annotations.js` — semne de carte / evidențieri / note (localStorage).
+- `src/lib/sermons.js` — predicile (IndexedDB, cu fallback localStorage).
+- `src/lib/crossrefs.js` — accesul la trimiteri.
+- `src/components/` — UI: căutare (`SearchBar`, `ResultList`, `VerseCard`),
+  cititor (`Reader`, `ChapterView`, `VerseActions`, `CrossRefsList`),
+  pagini (`SavedView`, `SermonsView`), navigație (`NavDrawer`), `Markdown`.
 
 ## Licență / atribuire
 
-Codul aplicației este publicat sub **MIT License**. Vezi `../LICENSE`.
-
-Fișierele `ro_cornilescu.json` și `en_kjv.json` provin din
-[thiagobodruk/bible](https://github.com/thiagobodruk/bible/tree/master), publicat sub
-**MIT License**. Atribuirea completă este în `../THIRD_PARTY_NOTICES.md`.
+Codul aplicației: **MIT** (vezi `../LICENSE`). Sursele și licențele datelor
+(texte biblice — domeniu public; trimiteri — CC-BY openbible.info):
+`../THIRD_PARTY_NOTICES.md`.
