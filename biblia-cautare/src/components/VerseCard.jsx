@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import CrossRefsList from './CrossRefsList.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { useAnnotations, toggleBookmark, verseKey, highlightBg } from '../lib/annotations.js';
+import { getCrossRefs } from '../lib/crossrefs.js';
 
-export default function VerseCard({ result, attribution, onOpen, index = null, selected = false }) {
+export default function VerseCard({ result, attribution, translation = null, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
+  const [refsOpen, setRefsOpen] = useState(false);
   const timer = useRef(null);
+
+  // Trimiterile versetului, vizibile direct de pe card (fără să deschizi cititorul).
+  const refs = translation ? getCrossRefs(result.abbrev, result.chapter, result.verse) : [];
 
   // Adnotările acestui verset (sincron cu cititorul și pagina Salvate):
   // semn de carte pe buton, evidențierea colorează textul versetului.
@@ -80,7 +86,38 @@ export default function VerseCard({ result, attribution, onOpen, index = null, s
       >
         {renderHighlighted(result.text, result.matches)}
       </p>
+
+      {refs.length > 0 && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setRefsOpen((o) => !o)}
+            aria-expanded={refsOpen}
+            title="Versete înrudite (trimiteri)"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <ChevronIcon open={refsOpen} />
+            Trimiteri ({refs.length})
+          </button>
+          {refsOpen && (
+            <div className="mt-1 border-t border-slate-100 pt-1 dark:border-slate-800">
+              <CrossRefsList translation={translation} refs={refs} onGoTo={(pos) => onOpen?.(pos)} />
+            </div>
+          )}
+        </div>
+      )}
     </li>
+  );
+}
+
+function ChevronIcon({ open }) {
+  return (
+    <svg
+      width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      className={'transition-transform ' + (open ? 'rotate-90' : '')}
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   );
 }
 

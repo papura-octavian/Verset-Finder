@@ -508,6 +508,7 @@ export default function App() {
                     results={refinedResults}
                     query={debouncedQuery}
                     attribution={attribution}
+                    translation={TRANSLATIONS[translation]}
                     refine={refine}
                     total={results.length}
                     onOpen={openReader}

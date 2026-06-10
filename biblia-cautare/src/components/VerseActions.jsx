@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import CrossRefsList from './CrossRefsList.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote, parseVerseKey } from '../lib/annotations.js';
-import { getCrossRefs, crossRefLabel } from '../lib/crossrefs.js';
-import { getChapterVerses } from '../lib/reader.js';
+import { getCrossRefs } from '../lib/crossrefs.js';
 
 // Stiluri comune pentru butoanele-pastilă (aceeași linie ca subsolul cititorului).
 const BTN = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs leading-none transition ';
@@ -129,29 +129,8 @@ export default function VerseActions({ verseKey: k, bookmarked, color, note, cop
       </div>
 
       {refsOpen && refs.length > 0 && (
-        <div className="mt-2 space-y-0.5">
-          {refs.map((r, i) => {
-            const text = getChapterVerses(translation, r.abbrev, r.chapter)?.[r.verse - 1];
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => onGoTo?.({ abbrev: r.abbrev, chapter: r.chapter, verse: r.verse })}
-                title="Deschide pasajul"
-                className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {crossRefLabel(translation, r)}
-                </span>
-                <span className="block line-clamp-2 text-sm leading-snug text-slate-500 dark:text-slate-400">
-                  {text ?? 'Indisponibil în această traducere.'}
-                </span>
-              </button>
-            );
-          })}
-          <p className="px-2 pt-1 text-[10px] text-slate-400 dark:text-slate-500">
-            Trimiteri: openbible.info (CC-BY)
-          </p>
+        <div className="mt-2">
+          <CrossRefsList translation={translation} refs={refs} onGoTo={onGoTo} />
         </div>
       )}
 
