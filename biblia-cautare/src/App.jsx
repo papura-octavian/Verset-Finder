@@ -5,6 +5,7 @@ import ResultList from './components/ResultList.jsx';
 import Reader from './components/Reader.jsx';
 import ChapterView from './components/ChapterView.jsx';
 import NavDrawer from './components/NavDrawer.jsx';
+import SavedView from './components/SavedView.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
@@ -46,7 +47,7 @@ export default function App() {
   const [refine, setRefine] = useState('');
   // Cititorul: { abbrev, chapter, verse|null } sau null (închis).
   const [reader, setReader] = useState(null);
-  // Pagina activă: 'search' (căutare) sau 'read' (citire).
+  // Pagina activă: 'search' (căutare), 'read' (citire) sau 'saved' (salvate).
   const [view, setView] = useState('search');
   // Poziția pe pagina Citește; persistată ca să reia ultima poziție.
   const [readPos, setReadPos] = useState(() => {
@@ -401,7 +402,7 @@ export default function App() {
               className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200 sm:h-14 sm:w-14 dark:ring-slate-700"
             />
             <h1 className="text-2xl font-bold tracking-tight">
-              {view === 'read' ? 'Citește' : 'Verset Finder'}
+              {view === 'read' ? 'Citește' : view === 'saved' ? 'Salvate' : 'Verset Finder'}
             </h1>
           </div>
 
@@ -441,6 +442,11 @@ export default function App() {
               onNavigate={setReadPos}
               pageMode
             />
+          </div>
+        ) : view === 'saved' ? (
+          /* Pagina Salvate: semne de carte, evidențieri și note personale. */
+          <div className="mx-auto max-w-2xl">
+            <SavedView translation={TRANSLATIONS[translation]} onOpen={openReader} />
           </div>
         ) : (
           <>

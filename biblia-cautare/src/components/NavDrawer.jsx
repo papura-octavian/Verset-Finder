@@ -5,6 +5,7 @@ import { useScrollLock } from '../lib/useScrollLock.js';
 const PAGES = [
   { id: 'search', label: 'Caută', icon: SearchIcon, desc: 'Caută cuvinte sau referințe' },
   { id: 'read', label: 'Citește', icon: BookIcon, desc: 'Citește Biblia capitol cu capitol' },
+  { id: 'saved', label: 'Salvate', icon: BookmarkIcon, desc: 'Semne de carte, evidențieri și note' },
 ];
 
 // Durata tranziției (ms) — ține-o sincronă cu clasele duration-* de mai jos.
@@ -135,6 +136,14 @@ function BookIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
     </svg>
   );
 }
