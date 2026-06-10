@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import ChapterView from './ChapterView.jsx';
 import { bookName } from '../lib/reader.js';
+import { useScrollLock } from '../lib/useScrollLock.js';
 
 /**
  * Cititorul ca overlay (modal): fundal + Escape + click pe fundal = închide.
@@ -8,6 +9,9 @@ import { bookName } from '../lib/reader.js';
  * partajat cu pagina Citește (`ReadView`).
  */
 export default function Reader({ translation, target, onNavigate, onClose }) {
+  // Cât e deschis, pagina din spate nu derulează (doar conținutul cititorului).
+  useScrollLock();
+
   // Închide cu Escape (prinde înaintea scurtăturilor globale din App).
   useEffect(() => {
     function onKey(e) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useScrollLock } from '../lib/useScrollLock.js';
 
 // Paginile aplicației (sertarul ☰). Iconițele sunt inline, în stilul celorlalte.
 const PAGES = [
@@ -21,6 +22,9 @@ export default function NavDrawer({ open, view, onNavigate, onClose }) {
   // `shown` comută clasele de tranziție (false = starea „în afara ecranului").
   const [render, setRender] = useState(open);
   const [shown, setShown] = useState(false);
+
+  // Cât e montat (inclusiv pe durata animației de ieșire), pagina nu derulează.
+  useScrollLock(render);
 
   useEffect(() => {
     if (open) {
