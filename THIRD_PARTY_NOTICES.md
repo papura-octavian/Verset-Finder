@@ -1,36 +1,44 @@
 # Third-Party Notices
 
-This repository includes Bible JSON data files derived from:
+Acest proiect include date derivate din următoarele surse. Fișierele-sursă brute
+NU sunt incluse în repository (stau local în `data-src/`); în aplicație intră
+variantele convertite din `biblia-cautare/src/data/`.
 
-- Source: https://github.com/thiagobodruk/bible/tree/master
-- Original author: Thiago Bodruk
-- Original license: MIT License
-- Files in this repository:
-  - `ro_cornilescu.json`
-  - `en_kjv.json`
-  - `biblia-cautare/src/data/ro_cornilescu.json`
-  - `biblia-cautare/src/data/en_kjv.json`
+## 1. Textul biblic românesc — RCCV
 
-## MIT License Notice for thiagobodruk/bible
+- **Traducere:** Romanian Corrected Cornilescu Version (RCCV) — ediția cu
+  corecturi ortografice a traducerii Dumitru Cornilescu (1924), versiunea
+  2013-09-09.
+- **Sursă:** eBible.org (`ron-rccv`, format USFX); distribuită și prin proiectul
+  Zefania XML (sourceforge.net/projects/zefania-sharp).
+- **Statut:** domeniu public. Conform declarației eBible.org pentru textul
+  Cornilescu 1924, copyright-ul a expirat — textul „is in the public domain and
+  may be copied and distributed freely".
+- **Fișier în repository:** `biblia-cautare/src/data/rccv.json`
+  (convertit cu `biblia-cautare/scripts/convertBibles.mjs`).
 
-MIT License
+## 2. Textul biblic englezesc — ASV
 
-Copyright (c) 2024 Thiago Bodruk
+- **Traducere:** American Standard Version (1901).
+- **Sursă:** Zefania XML Bible Markup Language
+  (sourceforge.net/projects/zefania-sharp; publisher: Free Bible Software Group).
+- **Statut:** domeniu public (copyright-ul SUA pentru ediția 1901 a expirat).
+- **Fișier în repository:** `biblia-cautare/src/data/asv.json`
+  (convertit cu `biblia-cautare/scripts/convertBibles.mjs`).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## 3. Trimiterile biblice (cross-references)
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- **Sursă:** OpenBible.info — „Bible Cross References"
+  (https://www.openbible.info/labs/cross-references/), set derivat în principal
+  din Treasury of Scripture Knowledge (domeniu public), cu voturi de relevanță.
+- **Licență:** Creative Commons Attribution (CC-BY). Atribuirea apare și în
+  aplicație, în panoul de trimiteri: „Trimiteri: openbible.info (CC-BY)".
+- **Fișier în repository:** `biblia-cautare/src/data/crossrefs.json`
+  (convertit cu `biblia-cautare/scripts/buildCrossRefs.mjs`, păstrând cele mai
+  relevante ~10 trimiteri per verset).
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+---
+
+Versiuni anterioare ale proiectului foloseau fișiere JSON derivate din
+repository-ul `thiagobodruk/bible` (licență MIT). Acele fișiere au fost
+eliminate și înlocuite cu sursele de mai sus.

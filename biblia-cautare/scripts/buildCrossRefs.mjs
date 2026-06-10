@@ -2,7 +2,7 @@
 //
 // Sursa (descărcată manual, NU intră în git):
 //   https://a.openbible.info/data/cross-references.zip
-//   → dezarhivat ca <repo>/cross_references.txt
+//   → dezarhivat ca <repo>/data-src/cross_references.txt
 //   Format TSV cu antet: "From Verse  To Verse  Votes", id-uri OSIS (Gen.1.1),
 //   intervale "Rom.5.8-Rom.5.9". Licență CC-BY (atribuire: openbible.info).
 //
@@ -11,8 +11,8 @@
 //   (cheie = versetul-sursă; valoare = țintele top-MAX_PER_VERSE după voturi,
 //    separate prin spațiu; intervalele doar în același capitol).
 //
-// Validare pe numerotarea KJV (TSK e construit pe KJV): referințele către
-// capitole/versete inexistente în en_kjv.json se aruncă.
+// Validare pe numerotarea ASV (TSK e construit pe linia KJV/ASV): referințele
+// către capitole/versete inexistente în asv.json se aruncă.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
 const MAX_PER_VERSE = 10;
 
 const here = dirname(fileURLToPath(import.meta.url));
-const INPUT = join(here, '..', '..', 'cross_references.txt');
-const KJV = join(here, '..', 'src', 'data', 'en_kjv.json');
+const INPUT = join(here, '..', '..', 'data-src', 'cross_references.txt');
+const ASV = join(here, '..', 'src', 'data', 'asv.json');
 const OUTPUT = join(here, '..', 'src', 'data', 'crossrefs.json');
 
 // OSIS (openbible.info) → abrevierile aplicației (src/data/books.js).
@@ -42,9 +42,9 @@ const OSIS = {
 };
 
 // Hartă abbrev → [nr. versete per capitol], pentru validare.
-const kjv = JSON.parse(readFileSync(KJV, 'utf8'));
+const asv = JSON.parse(readFileSync(ASV, 'utf8'));
 const sizes = {};
-for (const book of kjv) sizes[book.abbrev] = book.chapters.map((c) => c.length);
+for (const book of asv) sizes[book.abbrev] = book.chapters.map((c) => c.length);
 
 const unmapped = new Set();
 
