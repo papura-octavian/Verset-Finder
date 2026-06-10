@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
-  "description": "Căutare în Biblie (Cornilescu VDC 1924) — web app statică, offline & online.",
+  "description": "Căutare în Biblie (Cornilescu corectată RCCV + ASV) — web app statică, offline & online.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

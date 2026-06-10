@@ -1,9 +1,9 @@
 // Schema URL cu hash — UN SINGUR loc de parse/format pentru întreaga aplicație.
 //
 // Trei forme:
-//   #<trad>/<carte>.<capitol>[.<verset>]   → cititor-overlay (ex. #vdc/jo.3.16, #vdc/ps.23)
-//   #<trad>/r/<carte>.<capitol>[.<verset>] → pagina Citește (ex. #vdc/r/jo.3)
-//   #<trad>/q=<căutare>                     → căutare reluată din link (ex. #vdc/q=credinta)
+//   #<trad>/<carte>.<capitol>[.<verset>]   → cititor-overlay (ex. #rccv/jo.3.16, #rccv/ps.23)
+//   #<trad>/r/<carte>.<capitol>[.<verset>] → pagina Citește (ex. #rccv/r/jo.3)
+//   #<trad>/q=<căutare>                     → căutare reluată din link (ex. #rccv/q=credinta)
 //
 // Notă: abrevierile de cărți pot conține cifre (1sm, 2co, 1jo), dar NICIODATĂ punct,
 // deci putem împărți partea de referință după „." fără ambiguitate:
@@ -12,9 +12,13 @@
 // Acest modul e PUR (string ↔ obiect), fără dependențe. Validarea semantică
 // (traducerea există? cartea există? capitolul e în interval?) se face în App.
 
+// Id-urile vechi de traduceri (link-uri partajate înainte de trecerea pe
+// RCCV/ASV) sunt acceptate în continuare la parse.
+const LEGACY_TRANSLATIONS = { vdc: 'rccv', kjv: 'asv' };
+
 /**
  * Parsează un hash de URL într-o stare structurată.
- * @param {string} raw - ex. „#vdc/jo.3.16" sau „vdc/q=credinta" (cu sau fără „#").
+ * @param {string} raw - ex. „#rccv/jo.3.16" sau „rccv/q=credinta" (cu sau fără „#").
  * @returns {null
  *   | { type: 'reader'|'read', translation: string, abbrev: string, chapter: number, verse: number|null }
  *   | { type: 'search', translation: string, query: string }}
@@ -27,9 +31,10 @@ export function parseHash(raw) {
   const slash = h.indexOf('/');
   if (slash === -1) return null;
 
-  const translation = h.slice(0, slash);
+  let translation = h.slice(0, slash);
   let rest = h.slice(slash + 1);
   if (!translation || !rest) return null;
+  translation = LEGACY_TRANSLATIONS[translation] || translation;
 
   // Formă căutare: #<trad>/q=<encoded>
   if (rest.startsWith('q=')) {
@@ -71,11 +76,11 @@ export function parseHash(raw) {
 
 /**
  * Construiește un hash de cititor.
- * @param {string} translation - id-ul traducerii (ex. „vdc")
+ * @param {string} translation - id-ul traducerii (ex. „rccv")
  * @param {string} abbrev      - abrevierea cărții (ex. „jo")
  * @param {number} chapter     - capitolul (1-based)
  * @param {number|null} [verse]- versetul (1-based), opțional
- * @returns {string} ex. „#vdc/jo.3.16" sau „#vdc/jo.3"
+ * @returns {string} ex. „#rccv/jo.3.16" sau „#rccv/jo.3"
  */
 export function formatReader(translation, abbrev, chapter, verse = null) {
   let h = `#${translation}/${abbrev}.${chapter}`;
@@ -85,7 +90,7 @@ export function formatReader(translation, abbrev, chapter, verse = null) {
 
 /**
  * Construiește un hash pentru pagina Citește.
- * @returns {string} ex. „#vdc/r/jo.3" sau „#vdc/r/jo.3.16"
+ * @returns {string} ex. „#rccv/r/jo.3" sau „#rccv/r/jo.3.16"
  */
 export function formatRead(translation, abbrev, chapter, verse = null) {
   let h = `#${translation}/r/${abbrev}.${chapter}`;
@@ -97,7 +102,7 @@ export function formatRead(translation, abbrev, chapter, verse = null) {
  * Construiește un hash de căutare.
  * @param {string} translation - id-ul traducerii
  * @param {string} query       - textul căutat
- * @returns {string} ex. „#vdc/q=credinta"
+ * @returns {string} ex. „#rccv/q=credinta"
  */
 export function formatSearch(translation, query) {
   return `#${translation}/q=${encodeURIComponent(query)}`;

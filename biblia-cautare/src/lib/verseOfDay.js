@@ -1,6 +1,6 @@
 // „Versetul zilei" — 100% client-side, determinist după dată (aceeași zi => același
 // verset, pentru toată lumea). Listă curată de versete cunoscute; evităm capitolele
-// unde versificarea KJV diferă de Cornilescu, ca referința să fie corectă în ambele.
+// unde versificarea engleză (ASV) diferă de cea română, ca referința să fie corectă în ambele.
 export const VOTD_REFS = [
   { abbrev: 'gn', chapter: 1, verse: 1 },
   { abbrev: 'ps', chapter: 19, verse: 1 },

@@ -2,7 +2,7 @@ import { norm } from './search.js';
 
 /**
  * Aplatizează o traducere într-un index plat, cu `norm` precalculat per verset.
- * Folosește numele de cărți ale traducerii (RO pentru Cornilescu, EN pentru KJV).
+ * Folosește numele de cărți ale traducerii (RO pentru RCCV, EN pentru ASV).
  * Rezultat: [{ abbrev, book, chapter, verse, ref, text, norm }, ...] (~31.000 versete).
  */
 export function buildIndex(translation) {

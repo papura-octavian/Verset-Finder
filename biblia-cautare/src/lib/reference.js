@@ -15,7 +15,7 @@ function squash(s) {
  * Rezolvă un nume/abreviere de carte la abrevierea canonică.
  * Potrivire: exact (nume sau abreviere) → apoi prefix unic pe nume. Caută în numele
  * traducerii active întâi, apoi în ale celorlalte (abrevierile sunt comune), ca să
- * meargă și „@john 3:16" pe Cornilescu. Ambiguu (ex. „io") → null.
+ * meargă și „@john 3:16" pe traducerea română. Ambiguu (ex. „io") → null.
  * @returns {string|null} abrevierea (ex. „jo") sau null dacă negăsit/ambiguu.
  */
 export function resolveBook(token, translation) {
