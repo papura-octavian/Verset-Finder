@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText } from '../lib/clipboard.js';
+import { useAnnotations, toggleBookmark, verseKey } from '../lib/annotations.js';
 
 export default function VerseCard({ result, attribution, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
   const timer = useRef(null);
+
+  // Semnul de carte al acestui verset (sincron cu cititorul și pagina Salvate).
+  const ann = useAnnotations();
+  const k = verseKey(result.abbrev, result.chapter, result.verse);
+  const saved = !!ann.bookmarks[k];
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -18,6 +24,11 @@ export default function VerseCard({ result, attribution, onOpen, index = null, s
   async function handleCopy() {
     const ok = await copyText(payload);
     flash(ok ? 'Copiat!' : 'Eroare');
+  }
+
+  function handleBookmark() {
+    toggleBookmark(k);
+    flash(saved ? 'Scos din salvate' : 'Salvat!');
   }
 
   return (
@@ -43,6 +54,13 @@ export default function VerseCard({ result, attribution, onOpen, index = null, s
           {feedback && (
             <span className="mr-1 text-xs text-emerald-600 dark:text-emerald-400">{feedback}</span>
           )}
+          <IconButton
+            label={saved ? 'Scoate semnul de carte' : 'Salvează versetul (semn de carte)'}
+            onClick={handleBookmark}
+            active={saved}
+          >
+            <BookmarkIcon filled={saved} />
+          </IconButton>
           <IconButton label="Deschide în cititor" onClick={() => onOpen?.(result)}>
             <BookOpenIcon />
           </IconButton>
@@ -59,14 +77,20 @@ export default function VerseCard({ result, attribution, onOpen, index = null, s
   );
 }
 
-function IconButton({ label, onClick, children }) {
+function IconButton({ label, onClick, active = false, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      aria-pressed={active || undefined}
+      className={
+        'rounded-md p-1.5 transition ' +
+        (active
+          ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-slate-800 dark:hover:text-amber-300'
+          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200')
+      }
     >
       {children}
     </button>
@@ -95,6 +119,14 @@ function renderHighlighted(text, matches) {
   });
   if (last < text.length) parts.push(text.slice(last));
   return parts;
+}
+
+function BookmarkIcon({ filled }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
 }
 
 function BookOpenIcon() {
