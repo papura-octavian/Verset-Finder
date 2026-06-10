@@ -46,7 +46,7 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
   const [selected, setSelected] = useState(null);
   useEffect(() => {
     setSelected(null);
-  }, [abbrev, chapter]);
+  }, [abbrev, chapter, verse]);
 
   // Marcajul versetului țintă e doar de orientare: pâlpâie la sosire și se stinge,
   // ca să nu fie confundat cu o evidențiere personală (galbenă, persistentă).
@@ -107,6 +107,8 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
         color={ann.highlights[k] || null}
         note={ann.notes[k] || null}
         copyPayload={`${bookName(translation, abbrev)} ${chapter}:${n} — „${verses?.[n - 1] ?? ''}” (${translation.attribution})`}
+        translation={translation}
+        onGoTo={onNavigate}
       />
     );
   };

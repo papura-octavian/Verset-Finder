@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText } from '../lib/clipboard.js';
-import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote } from '../lib/annotations.js';
+import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote, parseVerseKey } from '../lib/annotations.js';
+import { getCrossRefs, crossRefLabel } from '../lib/crossrefs.js';
+import { getChapterVerses } from '../lib/reader.js';
 
 // Stiluri comune pentru butoanele-pastilă (aceeași linie ca subsolul cititorului).
 const BTN = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs leading-none transition ';
@@ -14,12 +16,17 @@ const BTN_DARK = 'border-slate-900 bg-slate-900 text-white dark:border-slate-100
  * Starea curentă vine ca props (părintele e abonat la store prin useAnnotations);
  * acțiunile scriu direct în store (annotations.js).
  */
-export default function VerseActions({ verseKey: k, bookmarked, color, note, copyPayload }) {
+export default function VerseActions({ verseKey: k, bookmarked, color, note, copyPayload, translation, onGoTo }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
+  const [refsOpen, setRefsOpen] = useState(false);
   const copyTimer = useRef(null);
   const textareaRef = useRef(null);
+
+  // Trimiterile acestui verset (openbible.info / TSK), gata sortate după relevanță.
+  const pos = parseVerseKey(k);
+  const refs = getCrossRefs(pos.abbrev, pos.chapter, pos.verse);
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
 
@@ -105,8 +112,48 @@ export default function VerseActions({ verseKey: k, bookmarked, color, note, cop
           Copiază
         </button>
 
+        {refs.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setRefsOpen((o) => !o)}
+            aria-expanded={refsOpen}
+            title="Versete înrudite (trimiteri)"
+            className={BTN + (refsOpen ? BTN_DARK : BTN_OFF)}
+          >
+            <RefsIcon />
+            Trimiteri ({refs.length})
+          </button>
+        )}
+
         {copied && <span className="text-xs text-emerald-600 dark:text-emerald-400">Copiat!</span>}
       </div>
+
+      {refsOpen && refs.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {refs.map((r, i) => {
+            const text = getChapterVerses(translation, r.abbrev, r.chapter)?.[r.verse - 1];
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onGoTo?.({ abbrev: r.abbrev, chapter: r.chapter, verse: r.verse })}
+                title="Deschide pasajul"
+                className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {crossRefLabel(translation, r)}
+                </span>
+                <span className="block line-clamp-2 text-sm leading-snug text-slate-500 dark:text-slate-400">
+                  {text ?? 'Indisponibil în această traducere.'}
+                </span>
+              </button>
+            );
+          })}
+          <p className="px-2 pt-1 text-[10px] text-slate-400 dark:text-slate-500">
+            Trimiteri: openbible.info (CC-BY)
+          </p>
+        </div>
+      )}
 
       {noteOpen && (
         <div className="mt-2 space-y-2">
@@ -161,6 +208,15 @@ function BookmarkIcon({ filled }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function RefsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 14 20 9 15 4" />
+      <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
     </svg>
   );
 }
