@@ -48,6 +48,16 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
     setSelected(null);
   }, [abbrev, chapter]);
 
+  // Marcajul versetului țintă e doar de orientare: pâlpâie la sosire și se stinge,
+  // ca să nu fie confundat cu o evidențiere personală (galbenă, persistentă).
+  const [targetFlash, setTargetFlash] = useState(true);
+  useEffect(() => {
+    if (verse == null) return undefined;
+    setTargetFlash(true);
+    const t = setTimeout(() => setTargetFlash(false), 2500);
+    return () => clearTimeout(t);
+  }, [abbrev, chapter, verse]);
+
   // Preferințe de afișare (mărime font + serif + comparație), persistate între sesiuni.
   const [prefs, setPrefs] = useState(() => {
     const p = loadJSON(READER_PREFS_KEY, null);
@@ -70,10 +80,10 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
   const compareOn = !!otherVerses;
 
   // Stil comun pentru o celulă de verset: evidențierea personală (culoarea aleasă)
-  // are prioritate la fundal; versetul țintă păstrează inelul galben; versetul
-  // selectat (cu bara de acțiuni deschisă) primește un contur discret.
+  // are prioritate la fundal; versetul țintă e marcat doar cât durează flash-ul;
+  // versetul selectat (cu bara de acțiuni deschisă) primește un contur discret.
   const cellCls = (n) => {
-    const isTarget = verse === n;
+    const isTarget = verse === n && targetFlash;
     const hl = highlightBg(ann.highlights[verseKey(abbrev, chapter, n)]);
     return (
       (pageMode ? 'scroll-mt-28 ' : 'scroll-mt-4 ') +
