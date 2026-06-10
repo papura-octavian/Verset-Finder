@@ -171,10 +171,50 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   // La părăsirea editorului, scrie pe disc orice salvare amânată.
   useEffect(() => () => flushSermon(sermon.id), [sermon.id]);
 
+  // --- Istoric propriu de undo/redo (Ctrl+Z / Ctrl+Y) ---
+  // Textarea e controlată din store și toolbar-ul îi rescrie valoarea programatic,
+  // ceea ce strică istoricul nativ al browserului — așa că îl ținem noi aici.
+  // Istoricul e per document (componenta se remontează cu key={id}).
+  const history = useRef({ undo: [], redo: [], lastPush: 0 });
+
+  // Salvează starea curentă în istoric. Tastarea rapidă e grupată (un pas de
+  // undo la fiecare pauză); operațiile din toolbar forțează un pas separat.
+  function pushHistory(force = false) {
+    const h = history.current;
+    const now = Date.now();
+    if (!force && now - h.lastPush < 400) return;
+    h.undo.push({ val: sermon.body, sel: taRef.current ? taRef.current.selectionStart : sermon.body.length });
+    if (h.undo.length > 100) h.undo.shift();
+    h.redo = [];
+    h.lastPush = now;
+  }
+
+  function applySnapshot(snap, stackForCurrent) {
+    const h = history.current;
+    stackForCurrent.push({ val: sermon.body, sel: taRef.current ? taRef.current.selectionStart : 0 });
+    h.lastPush = 0; // următoarea tastare începe un pas nou de undo
+    updateSermon(sermon.id, { body: snap.val });
+    requestAnimationFrame(() => {
+      taRef.current?.focus();
+      taRef.current?.setSelectionRange(snap.sel, snap.sel);
+    });
+  }
+
+  function undoEdit() {
+    const snap = history.current.undo.pop();
+    if (snap) applySnapshot(snap, history.current.redo);
+  }
+
+  function redoEdit() {
+    const snap = history.current.redo.pop();
+    if (snap) applySnapshot(snap, history.current.undo);
+  }
+
   // Aplică o transformare pe corpul documentului păstrând focusul și selecția.
   function edit(fn) {
     const ta = taRef.current;
     if (!ta) return;
+    pushHistory(true);
     const { text, selStart, selEnd } = fn(sermon.body, ta.selectionStart, ta.selectionEnd);
     updateSermon(sermon.id, { body: text });
     requestAnimationFrame(() => {
@@ -190,6 +230,69 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
       const text = val.slice(0, s) + before + sel + after + val.slice(e);
       return { text, selStart: s + before.length, selEnd: s + before.length + sel.length };
     });
+  }
+
+  // Tab = indentare cu două spații (Shift+Tab scoate indentarea); pe selecții
+  // de mai multe linii lucrează linie cu linie, ca în VS Code / Obsidian.
+  function indentSelection(outdent) {
+    edit((val, s, e) => {
+      const multi = val.slice(s, e).includes('\n');
+      if (!outdent && !multi && s === e) {
+        const text = val.slice(0, s) + '  ' + val.slice(e);
+        return { text, selStart: s + 2, selEnd: s + 2 };
+      }
+      const ls = val.lastIndexOf('\n', s - 1) + 1;
+      let le = val.indexOf('\n', e);
+      if (le === -1) le = val.length;
+      const lines = val.slice(ls, le).split('\n');
+      const changed = lines.map((l) => (outdent ? l.replace(/^( {1,2}|\t)/, '') : '  ' + l)).join('\n');
+      const text = val.slice(0, ls) + changed + val.slice(le);
+      return { text, selStart: ls, selEnd: ls + changed.length };
+    });
+  }
+
+  // Enter pe o linie de listă/citat continuă marcajul pe linia următoare
+  // (numerele cresc); Enter pe un element gol scoate marcajul (închide lista).
+  // Întoarce true dacă a gestionat tasta.
+  function continueList(e) {
+    const ta = taRef.current;
+    if (!ta || ta.selectionStart !== ta.selectionEnd) return false;
+    const s = ta.selectionStart;
+    const val = sermon.body;
+    const ls = val.lastIndexOf('\n', s - 1) + 1;
+    let le = val.indexOf('\n', s);
+    if (le === -1) le = val.length;
+    const line = val.slice(ls, le);
+    const m = line.match(/^(\s*)([-*]\s|>\s?|(\d+)([.)])\s)(.*)$/);
+    if (!m) return false;
+    e.preventDefault();
+    if (!m[5].trim()) {
+      // element gol → scoate marcajul și lasă o linie liberă
+      edit((v) => {
+        const text = v.slice(0, ls) + v.slice(ls + line.length);
+        return { text, selStart: ls, selEnd: ls };
+      });
+      return true;
+    }
+    const marker = m[3] != null ? `${parseInt(m[3], 10) + 1}${m[4]} ` : m[2].trim() + ' ';
+    edit((v, ss, ee) => {
+      const ins = '\n' + m[1] + marker;
+      const pos = ss + ins.length;
+      return { text: v.slice(0, ss) + ins + v.slice(ee), selStart: pos, selEnd: pos };
+    });
+    return true;
+  }
+
+  // Comenzile de editor au prioritate în textarea (Tab nu mai mută focusul).
+  function handleKeyDown(e) {
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    if (mod && !e.shiftKey && k === 'z') { e.preventDefault(); undoEdit(); return; }
+    if ((mod && k === 'y') || (mod && e.shiftKey && k === 'z')) { e.preventDefault(); redoEdit(); return; }
+    if (mod && k === 'b') { e.preventDefault(); wrap('**'); return; }
+    if (mod && k === 'i') { e.preventDefault(); wrap('*'); return; }
+    if (e.key === 'Tab') { e.preventDefault(); indentSelection(e.shiftKey); return; }
+    if (e.key === 'Enter' && !mod && !e.shiftKey) continueList(e);
   }
 
   // Prefixează liniile selectate (titluri, liste, citat); numbered = 1. 2. 3.
@@ -256,10 +359,9 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   }
 
   return (
-    /* Zona editorului umple restul ecranului; coloana de scris stă centrată
-       în ea (max-w-3xl), ca în Obsidian — confortabil de citit pe monitor lat. */
-    <div className="min-w-0 flex-1">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+    /* Editorul umple tot spațiul rămas după sidebar — lat, cât chenarul
+       punctat al stării goale, pe orice ecran. */
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -374,7 +476,11 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
         <textarea
           ref={taRef}
           value={sermon.body}
-          onChange={(e) => updateSermon(sermon.id, { body: e.target.value })}
+          onChange={(e) => {
+            pushHistory();
+            updateSermon(sermon.id, { body: e.target.value });
+          }}
+          onKeyDown={handleKeyDown}
           placeholder="Scrie predica aici… Folosește toolbar-ul pentru titluri, liste și versete."
           aria-label="Conținutul predicii"
           className="min-h-[55vh] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base leading-relaxed text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 sm:min-h-[68vh] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
@@ -386,7 +492,6 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
       </p>
 
       {presenting && <PresentationOverlay sermon={sermon} onClose={() => setPresenting(false)} />}
-      </div>
     </div>
   );
 }
