@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import VerseCard from './VerseCard.jsx';
 
 // Listă fără virtualizare: limităm randarea la primele MAX_RENDER rezultate ca să
@@ -5,7 +6,7 @@ import VerseCard from './VerseCard.jsx';
 // react-window — vezi planul §7.)
 const MAX_RENDER = 500;
 
-export default function ResultList({ results, query, attribution, translation = null, refine = '', total = null, onOpen, selectedIndex = -1, emptyHint = null }) {
+function ResultList({ results, query, attribution, translation = null, refine = '', total = null, onOpen, selectedIndex = -1, emptyHint = null }) {
   if (!results) return null; // starea „idle" e gestionată de App (Versetul zilei)
 
   if (results.length === 0) {
@@ -46,3 +47,7 @@ export default function ResultList({ results, query, attribution, translation = 
     </div>
   );
 }
+
+// memo: schimbările de stare din App care nu privesc rezultatele (meniu, overlay,
+// dark mode) sar peste lista întreagă — vezi nota din VerseCard.
+export default memo(ResultList);

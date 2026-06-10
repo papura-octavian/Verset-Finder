@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import CrossRefsList from './CrossRefsList.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { useAnnotations, toggleBookmark, verseKey, highlightBg } from '../lib/annotations.js';
 import { getCrossRefs } from '../lib/crossrefs.js';
 
-export default function VerseCard({ result, attribution, translation = null, onOpen, index = null, selected = false }) {
+function VerseCard({ result, attribution, translation = null, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
   const [refsOpen, setRefsOpen] = useState(false);
   const timer = useRef(null);
 
   // Trimiterile versetului, vizibile direct de pe card (fără să deschizi cititorul).
-  const refs = translation ? getCrossRefs(result.abbrev, result.chapter, result.verse) : [];
+  const refs = useMemo(
+    () => (translation ? getCrossRefs(result.abbrev, result.chapter, result.verse) : []),
+    [translation, result]
+  );
 
   // Adnotările acestui verset (sincron cu cititorul și pagina Salvate):
   // semn de carte pe buton, evidențierea colorează textul versetului.
@@ -109,6 +112,12 @@ export default function VerseCard({ result, attribution, translation = null, onO
     </li>
   );
 }
+
+// memo: lista poate avea sute de carduri; fără memo, ORICE schimbare de stare din
+// App (meniu, overlay, dark mode) le re-randa pe toate și bloca primele cadre ale
+// animațiilor. Props-urile vin stabile din App (results memoizat, openReader
+// useCallback, TRANSLATIONS constant la nivel de modul).
+export default memo(VerseCard);
 
 function ChevronIcon({ open }) {
   return (
