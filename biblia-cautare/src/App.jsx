@@ -385,7 +385,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+      {/* Pagina Predici folosește toată lățimea ecranului (layout tip Obsidian);
+          restul paginilor rămân pe coloana îngustă de citit/căutat. */}
+      <div className={'mx-auto px-4 py-6 sm:py-8 ' + (view === 'sermons' ? 'max-w-none sm:px-6' : 'max-w-3xl')}>
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <button

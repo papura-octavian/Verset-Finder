@@ -43,9 +43,15 @@ export default function SermonsView({ translation }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      {/* Panoul cu documente — pe mobil dispare cât e deschis un document. */}
-      <aside className={(active ? 'hidden sm:flex' : 'flex') + ' w-full shrink-0 flex-col gap-2 sm:w-64'}>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+      {/* Panoul cu documente — pe mobil dispare cât e deschis un document;
+          pe desktop stă lipicios în stânga, ca sidebar-ul din Obsidian. */}
+      <aside
+        className={
+          (active ? 'hidden sm:flex' : 'flex') +
+          ' w-full shrink-0 flex-col gap-2 sm:sticky sm:top-6 sm:max-h-[calc(100vh-6rem)] sm:w-64 sm:overflow-y-auto lg:w-72'
+        }
+      >
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Predicile mele {sermons.length > 0 && `(${sermons.length})`}
@@ -145,7 +151,7 @@ export default function SermonsView({ translation }) {
           }}
         />
       ) : (
-        <div className="hidden min-h-64 flex-1 items-center justify-center rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-400 sm:flex dark:border-slate-700 dark:text-slate-500">
+        <div className="hidden flex-1 items-center justify-center rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-400 sm:flex sm:min-h-[70vh] dark:border-slate-700 dark:text-slate-500">
           Alege o predică din listă sau creează una nouă.
         </div>
       )}
@@ -250,7 +256,10 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-2">
+    /* Zona editorului umple restul ecranului; coloana de scris stă centrată
+       în ea (max-w-3xl), ca în Obsidian — confortabil de citit pe monitor lat. */
+    <div className="min-w-0 flex-1">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -358,7 +367,7 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
 
       {/* Corpul: scriere sau previzualizare */}
       {preview ? (
-        <div className="min-h-[55vh] rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+        <div className="min-h-[55vh] rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-800 sm:min-h-[68vh] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
           <Markdown text={sermon.body} />
         </div>
       ) : (
@@ -368,7 +377,7 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
           onChange={(e) => updateSermon(sermon.id, { body: e.target.value })}
           placeholder="Scrie predica aici… Folosește toolbar-ul pentru titluri, liste și versete."
           aria-label="Conținutul predicii"
-          className="min-h-[55vh] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base leading-relaxed text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
+          className="min-h-[55vh] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-base leading-relaxed text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 sm:min-h-[68vh] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
         />
       )}
 
@@ -377,6 +386,7 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
       </p>
 
       {presenting && <PresentationOverlay sermon={sermon} onClose={() => setPresenting(false)} />}
+      </div>
     </div>
   );
 }
