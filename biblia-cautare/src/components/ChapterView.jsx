@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import VerseActions from './VerseActions.jsx';
 import { bookList } from '../data/books.js';
 import { TRANSLATION_LIST } from '../lib/translations.js';
 import { copyText } from '../lib/clipboard.js';
 import { loadJSON, saveJSON } from '../lib/storage.js';
+import { useAnnotations, verseKey, highlightBg } from '../lib/annotations.js';
 import {
   getChapterVerses,
   chapterCount,
@@ -38,6 +40,14 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
 
+  // Adnotările personale (semne de carte, evidențieri, note) + versetul selectat
+  // (atins) sub care se deschide bara de acțiuni. Selecția se pierde la navigare.
+  const ann = useAnnotations();
+  const [selected, setSelected] = useState(null);
+  useEffect(() => {
+    setSelected(null);
+  }, [abbrev, chapter]);
+
   // Preferințe de afișare (mărime font + serif + comparație), persistate între sesiuni.
   const [prefs, setPrefs] = useState(() => {
     const p = loadJSON(READER_PREFS_KEY, null);
@@ -59,13 +69,48 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
     : null;
   const compareOn = !!otherVerses;
 
-  // Stil comun pentru o celulă de verset (highlight pe versetul țintă).
-  const cellCls = (isTarget) =>
-    (pageMode ? 'scroll-mt-28 ' : 'scroll-mt-4 ') +
-    'rounded-md px-1.5 py-0.5 transition-colors ' +
-    (isTarget
-      ? 'bg-yellow-200/70 ring-1 ring-yellow-300 dark:bg-yellow-400/20 dark:ring-yellow-400/40'
-      : '');
+  // Stil comun pentru o celulă de verset: evidențierea personală (culoarea aleasă)
+  // are prioritate la fundal; versetul țintă păstrează inelul galben; versetul
+  // selectat (cu bara de acțiuni deschisă) primește un contur discret.
+  const cellCls = (n) => {
+    const isTarget = verse === n;
+    const hl = highlightBg(ann.highlights[verseKey(abbrev, chapter, n)]);
+    return (
+      (pageMode ? 'scroll-mt-28 ' : 'scroll-mt-4 ') +
+      'cursor-pointer rounded-md px-1.5 py-0.5 transition-colors ' +
+      (hl ? hl + ' ' : isTarget ? 'bg-yellow-200/70 dark:bg-yellow-400/20 ' : '') +
+      (isTarget ? 'ring-1 ring-yellow-300 dark:ring-yellow-400/40 ' : '') +
+      (selected === n ? 'outline-2 outline-slate-400/80 dark:outline-slate-500/80' : '')
+    );
+  };
+
+  // Atingerea unui verset deschide/închide bara de acțiuni de sub el.
+  const toggleSelected = (n) => setSelected((s) => (s === n ? null : n));
+
+  // Bara de acțiuni pentru versetul n (salvează / culori / notă / copiază).
+  const actionsFor = (n) => {
+    const k = verseKey(abbrev, chapter, n);
+    return (
+      <VerseActions
+        verseKey={k}
+        bookmarked={!!ann.bookmarks[k]}
+        color={ann.highlights[k] || null}
+        note={ann.notes[k] || null}
+        copyPayload={`${bookName(translation, abbrev)} ${chapter}:${n} — „${verses?.[n - 1] ?? ''}” (${translation.attribution})`}
+      />
+    );
+  };
+
+  // Indicatorii discreți de lângă numărul versetului (semn de carte / notă).
+  const marksFor = (n) => {
+    const k = verseKey(abbrev, chapter, n);
+    return (
+      <>
+        {ann.bookmarks[k] && <BookmarkMini />}
+        {ann.notes[k] && <NoteMini />}
+      </>
+    );
+  };
   const textCls =
     'leading-relaxed text-slate-700 dark:text-slate-300 ' +
     SIZES[prefs.size] +
@@ -222,14 +267,21 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
                 const isTarget = verse === n;
                 return (
                   <Fragment key={n}>
-                    <p ref={isTarget ? verseRef : null} id={`v${n}`} className={cellCls(isTarget)}>
+                    <p
+                      ref={isTarget ? verseRef : null}
+                      id={`v${n}`}
+                      onClick={() => toggleSelected(n)}
+                      className={cellCls(n)}
+                    >
                       <Vsup n={n} />
+                      {marksFor(n)}
                       {verses[i] ?? ''}
                     </p>
-                    <p className={cellCls(isTarget)}>
+                    <p onClick={() => toggleSelected(n)} className={cellCls(n)}>
                       <Vsup n={n} />
                       {otherVerses[i] ?? ''}
                     </p>
+                    {selected === n && <div className="col-span-2">{actionsFor(n)}</div>}
                   </Fragment>
                 );
               })}
@@ -241,10 +293,19 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
               const n = i + 1;
               const isTarget = verse === n;
               return (
-                <p key={n} ref={isTarget ? verseRef : null} id={`v${n}`} className={cellCls(isTarget)}>
-                  <Vsup n={n} />
-                  {text}
-                </p>
+                <Fragment key={n}>
+                  <p
+                    ref={isTarget ? verseRef : null}
+                    id={`v${n}`}
+                    onClick={() => toggleSelected(n)}
+                    className={cellCls(n)}
+                  >
+                    <Vsup n={n} />
+                    {marksFor(n)}
+                    {text}
+                  </p>
+                  {selected === n && actionsFor(n)}
+                </Fragment>
               );
             })}
           </div>
@@ -320,6 +381,31 @@ function Vsup({ n }) {
     <sup className="mr-1 select-none align-baseline text-xs font-semibold text-slate-400 dark:text-slate-500">
       {n}
     </sup>
+  );
+}
+
+function BookmarkMini() {
+  return (
+    <svg
+      className="mr-1 inline-block align-[-1px] text-amber-500 dark:text-amber-400"
+      width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"
+      aria-label="Verset salvat"
+    >
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function NoteMini() {
+  return (
+    <svg
+      className="mr-1 inline-block align-[-1px] text-slate-400 dark:text-slate-500"
+      width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      aria-label="Verset cu notă"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
 
