@@ -6,6 +6,7 @@ const PAGES = [
   { id: 'search', label: 'Caută', icon: SearchIcon, desc: 'Caută cuvinte sau referințe' },
   { id: 'read', label: 'Citește', icon: BookIcon, desc: 'Citește Biblia capitol cu capitol' },
   { id: 'saved', label: 'Salvate', icon: BookmarkIcon, desc: 'Semne de carte, evidențieri și note' },
+  { id: 'sermons', label: 'Predici', icon: PenIcon, desc: 'Scrie, organizează și prezintă predici' },
 ];
 
 // Durata tranziției (ms) — ține-o sincronă cu clasele duration-* de mai jos.
@@ -144,6 +145,15 @@ function BookmarkIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }
