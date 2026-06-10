@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText } from '../lib/clipboard.js';
-import { useAnnotations, toggleBookmark, verseKey } from '../lib/annotations.js';
+import { useAnnotations, toggleBookmark, verseKey, highlightBg } from '../lib/annotations.js';
 
 export default function VerseCard({ result, attribution, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
   const timer = useRef(null);
 
-  // Semnul de carte al acestui verset (sincron cu cititorul și pagina Salvate).
+  // Adnotările acestui verset (sincron cu cititorul și pagina Salvate):
+  // semn de carte pe buton, evidențierea colorează textul versetului.
   const ann = useAnnotations();
   const k = verseKey(result.abbrev, result.chapter, result.verse);
   const saved = !!ann.bookmarks[k];
+  const hlBg = highlightBg(ann.highlights[k]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -70,7 +72,12 @@ export default function VerseCard({ result, attribution, onOpen, index = null, s
         </div>
       </div>
 
-      <p className="leading-relaxed text-slate-700 dark:text-slate-300">
+      <p
+        className={
+          'leading-relaxed text-slate-700 dark:text-slate-300' +
+          (hlBg ? ' rounded-md px-1.5 py-0.5 ' + hlBg : '')
+        }
+      >
         {renderHighlighted(result.text, result.matches)}
       </p>
     </li>
