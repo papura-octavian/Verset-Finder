@@ -104,6 +104,7 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
       <VerseActions
         verseKey={k}
         bookmarked={!!ann.bookmarks[k]}
+        collection={ann.bookmarks[k]?.collection || null}
         color={ann.highlights[k] || null}
         note={ann.notes[k] || null}
         copyPayload={`${bookName(translation, abbrev)} ${chapter}:${n} — „${verses?.[n - 1] ?? ''}” (${translation.attribution})`}

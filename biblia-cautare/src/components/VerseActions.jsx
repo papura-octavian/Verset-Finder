@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import CrossRefsList from './CrossRefsList.jsx';
+import CollectionPicker from './CollectionPicker.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote, parseVerseKey } from '../lib/annotations.js';
 import { getCrossRefs } from '../lib/crossrefs.js';
+import { bookName } from '../lib/reader.js';
 
 // Stiluri comune pentru butoanele-pastilă (aceeași linie ca subsolul cititorului).
 const BTN = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs leading-none transition ';
@@ -16,17 +18,19 @@ const BTN_DARK = 'border-slate-900 bg-slate-900 text-white dark:border-slate-100
  * Starea curentă vine ca props (părintele e abonat la store prin useAnnotations);
  * acțiunile scriu direct în store (annotations.js).
  */
-export default function VerseActions({ verseKey: k, bookmarked, color, note, copyPayload, translation, onGoTo }) {
+export default function VerseActions({ verseKey: k, bookmarked, collection = null, color, note, copyPayload, translation, onGoTo }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const [refsOpen, setRefsOpen] = useState(false);
+  const [collOpen, setCollOpen] = useState(false);
   const copyTimer = useRef(null);
   const textareaRef = useRef(null);
 
   // Trimiterile acestui verset (openbible.info / TSK), gata sortate după relevanță.
   const pos = parseVerseKey(k);
   const refs = getCrossRefs(pos.abbrev, pos.chapter, pos.verse);
+  const refLabel = `${bookName(translation, pos.abbrev)} ${pos.chapter}:${pos.verse}`;
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
 
@@ -61,7 +65,11 @@ export default function VerseActions({ verseKey: k, bookmarked, color, note, cop
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           type="button"
-          onClick={() => toggleBookmark(k)}
+          onClick={() => {
+            // La salvare se deschide direct alegerea colecției (ca pe carduri).
+            toggleBookmark(k);
+            setCollOpen(!bookmarked);
+          }}
           aria-pressed={bookmarked}
           title={bookmarked ? 'Scoate semnul de carte' : 'Salvează versetul (semn de carte)'}
           className={BTN + (bookmarked ? BTN_AMBER : BTN_OFF)}
@@ -69,6 +77,19 @@ export default function VerseActions({ verseKey: k, bookmarked, color, note, cop
           <BookmarkIcon filled={bookmarked} />
           {bookmarked ? 'Salvat' : 'Salvează'}
         </button>
+
+        {bookmarked && (
+          <button
+            type="button"
+            onClick={() => setCollOpen((o) => !o)}
+            aria-expanded={collOpen}
+            title="Alege colecția semnului de carte"
+            className={BTN + (collOpen ? BTN_DARK : BTN_OFF)}
+          >
+            <FolderIcon />
+            {collection || 'Colecție'}
+          </button>
+        )}
 
         <span className="flex items-center gap-1.5" role="group" aria-label="Evidențiază pe culori">
           {HIGHLIGHT_COLORS.map((c) => {
@@ -127,6 +148,12 @@ export default function VerseActions({ verseKey: k, bookmarked, color, note, cop
 
         {copied && <span className="text-xs text-emerald-600 dark:text-emerald-400">Copiat!</span>}
       </div>
+
+      {bookmarked && collOpen && (
+        <div className="mt-2">
+          <CollectionPicker verseKey={k} refLabel={refLabel} onDone={() => setCollOpen(false)} />
+        </div>
+      )}
 
       {refsOpen && refs.length > 0 && (
         <div className="mt-2">
@@ -187,6 +214,14 @@ function BookmarkIcon({ filled }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
     </svg>
   );
 }

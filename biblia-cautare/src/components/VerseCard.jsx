@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import CrossRefsList from './CrossRefsList.jsx';
+import CollectionPicker from './CollectionPicker.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { useAnnotations, toggleBookmark, verseKey, highlightBg } from '../lib/annotations.js';
 import { getCrossRefs } from '../lib/crossrefs.js';
@@ -7,6 +8,7 @@ import { getCrossRefs } from '../lib/crossrefs.js';
 function VerseCard({ result, attribution, translation = null, onOpen, index = null, selected = false }) {
   const [feedback, setFeedback] = useState('');
   const [refsOpen, setRefsOpen] = useState(false);
+  const [collOpen, setCollOpen] = useState(false);
   const timer = useRef(null);
 
   // Trimiterile versetului, vizibile direct de pe card (fără să deschizi cititorul).
@@ -19,7 +21,8 @@ function VerseCard({ result, attribution, translation = null, onOpen, index = nu
   // semn de carte pe buton, evidențierea colorează textul versetului.
   const ann = useAnnotations();
   const k = verseKey(result.abbrev, result.chapter, result.verse);
-  const saved = !!ann.bookmarks[k];
+  const bm = ann.bookmarks[k];
+  const saved = !!bm;
   const hlBg = highlightBg(ann.highlights[k]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -37,8 +40,11 @@ function VerseCard({ result, attribution, translation = null, onOpen, index = nu
     flash(ok ? 'Copiat!' : 'Eroare');
   }
 
+  // La salvare se deschide direct alegerea colecției (cerință: fără drumul
+  // căutare → Salvate → înapoi doar ca să pui versetul într-o colecție).
   function handleBookmark() {
     toggleBookmark(k);
+    setCollOpen(!saved);
     flash(saved ? 'Scos din salvate' : 'Salvat!');
   }
 
@@ -72,6 +78,14 @@ function VerseCard({ result, attribution, translation = null, onOpen, index = nu
           >
             <BookmarkIcon filled={saved} />
           </IconButton>
+          {saved && (
+            <IconButton
+              label={'Alege colecția' + (bm.collection ? ` (acum: ${bm.collection})` : '')}
+              onClick={() => setCollOpen((o) => !o)}
+            >
+              <FolderIcon />
+            </IconButton>
+          )}
           <IconButton label="Deschide în cititor" onClick={() => onOpen?.(result)}>
             <BookOpenIcon />
           </IconButton>
@@ -89,6 +103,12 @@ function VerseCard({ result, attribution, translation = null, onOpen, index = nu
       >
         {renderHighlighted(result.text, result.matches)}
       </p>
+
+      {saved && collOpen && (
+        <div className="mt-2">
+          <CollectionPicker verseKey={k} refLabel={result.ref} onDone={() => setCollOpen(false)} />
+        </div>
+      )}
 
       {refs.length > 0 && (
         <div className="mt-2">
@@ -178,6 +198,14 @@ function BookmarkIcon({ filled }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
     </svg>
   );
 }
