@@ -37,6 +37,12 @@ variantele convertite din `biblia-cautare/src/data/`.
   (convertit cu `biblia-cautare/scripts/buildCrossRefs.mjs`, păstrând cele mai
   relevante ~10 trimiteri per verset).
 
+## 4. Fontul Roboto (exportul PDF al predicilor)
+
+- **Font:** Roboto (Google), inclus prin biblioteca `pdfmake` și înglobat în
+  fișierele PDF exportate din editorul de predici.
+- **Licență:** Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
 ---
 
 Versiuni anterioare ale proiectului foloseau fișiere JSON derivate din

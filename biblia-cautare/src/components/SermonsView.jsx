@@ -7,12 +7,15 @@ import {
   flushSermon,
   deleteSermon,
   reorderSermon,
+  sermonMarkdown,
+  sermonFileSlug,
   TEMPLATES,
 } from '../lib/sermons.js';
+import { downloadDocx } from '../lib/exportDocx.js';
+import { downloadPdf } from '../lib/exportPdf.js';
 import { parseReference, referenceVerses } from '../lib/reference.js';
 import { useAnnotations, parseVerseKey, collectionNames, HIGHLIGHT_COLORS } from '../lib/annotations.js';
 import { getChapterVerses, bookName } from '../lib/reader.js';
-import { norm } from '../lib/search.js';
 import { useScrollLock } from '../lib/useScrollLock.js';
 
 // Sursele panoului „+ Verset": referință tastată sau direct din materialul
@@ -181,6 +184,7 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   const [verseQuery, setVerseQuery] = useState('');
   const [verseError, setVerseError] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Materialul personal pentru taburile din „+ Verset" (textul vine din
   // traducerea activă, ca în pagina Salvate).
@@ -403,13 +407,10 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
 
   // Descarcă documentul ca fișier .md (titlul devine numele fișierului).
   function downloadMd() {
-    const content = sermon.body.trimStart().startsWith('# ')
-      ? sermon.body
-      : `# ${sermon.title}\n\n${sermon.body}`;
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const blob = new Blob([sermonMarkdown(sermon)], { type: 'text/markdown;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (norm(sermon.title).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'predica') + '.md';
+    a.download = sermonFileSlug(sermon.title) + '.md';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -468,9 +469,28 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
         <TbBtn label="Mod prezentare (ecran întreg)" onClick={() => setPresenting(true)}>
           <PlayIcon />
         </TbBtn>
-        <TbBtn label="Descarcă fișierul .md" onClick={downloadMd}>
-          <DownloadIcon />
-        </TbBtn>
+        {/* Meniul de export: .md brut sau formatat ca Word/PDF. */}
+        <span className="relative" onKeyDown={(e) => e.key === 'Escape' && setExportOpen(false)}>
+          <TbBtn label="Exportă predica (.md, .docx, .pdf)" onClick={() => setExportOpen((o) => !o)} active={exportOpen}>
+            <DownloadIcon />
+          </TbBtn>
+          {exportOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+              <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg sm:left-auto sm:right-0 dark:border-slate-700 dark:bg-slate-900">
+                <ExportItem onClick={() => { downloadMd(); setExportOpen(false); }}>
+                  Fișier markdown (.md)
+                </ExportItem>
+                <ExportItem onClick={() => { downloadDocx(sermon); setExportOpen(false); }}>
+                  Word (.docx)
+                </ExportItem>
+                <ExportItem onClick={() => { downloadPdf(sermon); setExportOpen(false); }}>
+                  PDF (.pdf)
+                </ExportItem>
+              </div>
+            </>
+          )}
+        </span>
 
         <span className="ml-auto" />
         {confirmDel ? (
@@ -727,6 +747,18 @@ function TbBtn({ label, onClick, active = false, disabled = false, children }) {
           ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
           : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
       }
+    >
+      {children}
+    </button>
+  );
+}
+
+function ExportItem({ onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full rounded-md px-2.5 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
     >
       {children}
     </button>
