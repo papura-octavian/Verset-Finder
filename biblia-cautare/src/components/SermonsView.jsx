@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Markdown from './Markdown.jsx';
 import {
   useSermons,
@@ -10,13 +10,25 @@ import {
   TEMPLATES,
 } from '../lib/sermons.js';
 import { parseReference, referenceVerses } from '../lib/reference.js';
+import { useAnnotations, parseVerseKey, collectionNames, HIGHLIGHT_COLORS } from '../lib/annotations.js';
+import { getChapterVerses, bookName } from '../lib/reader.js';
 import { norm } from '../lib/search.js';
 import { useScrollLock } from '../lib/useScrollLock.js';
+
+// Sursele panoului „+ Verset": referință tastată sau direct din materialul
+// personal (semne de carte, evidențieri, note) — fără să pleci din editor.
+const PICK_TABS = [
+  { id: 'ref', label: 'Referință' },
+  { id: 'bookmarks', label: 'Salvate' },
+  { id: 'highlights', label: 'Evidențieri' },
+  { id: 'notes', label: 'Note' },
+];
 
 /**
  * Pagina „Predici" (Batch 4): panoul din stânga cu documentele salvate
  * (reordonabile), editor markdown cu toolbar pentru ne-tehnici, inserare
- * rapidă de versete după referință, previzualizare și mod prezentare.
+ * rapidă de versete (după referință sau din semnele de carte / evidențieri /
+ * note personale), previzualizare și mod prezentare.
  * Pe mobil: lista și editorul sunt ecrane separate (înapoi cu ‹).
  */
 export default function SermonsView({ translation }) {
@@ -164,9 +176,39 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   const [preview, setPreview] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [versePick, setVersePick] = useState(false);
+  const [pickTab, setPickTab] = useState('ref');
+  const [pickColl, setPickColl] = useState('all');
   const [verseQuery, setVerseQuery] = useState('');
   const [verseError, setVerseError] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+
+  // Materialul personal pentru taburile din „+ Verset" (textul vine din
+  // traducerea activă, ca în pagina Salvate).
+  const ann = useAnnotations();
+  const collections = useMemo(() => collectionNames(ann.bookmarks), [ann.bookmarks]);
+  const savedRows = useMemo(() => {
+    const row = (key) => {
+      const { abbrev, chapter, verse } = parseVerseKey(key);
+      return {
+        key,
+        order: (translation.books[abbrev]?.order ?? 999) * 1e6 + chapter * 1e3 + verse,
+        ref: `${bookName(translation, abbrev)} ${chapter}:${verse}`,
+        text: getChapterVerses(translation, abbrev, chapter)?.[verse - 1] ?? '',
+      };
+    };
+    return {
+      // Semne de carte și note: cele mai recente primele; evidențieri: ordine canonică.
+      bookmarks: Object.entries(ann.bookmarks)
+        .sort((a, b) => b[1].at - a[1].at)
+        .map(([key, b]) => ({ ...row(key), collection: b.collection })),
+      highlights: Object.entries(ann.highlights)
+        .map(([key, color]) => ({ ...row(key), color }))
+        .sort((a, b) => a.order - b.order),
+      notes: Object.entries(ann.notes)
+        .sort((a, b) => b[1].at - a[1].at)
+        .map(([key, n]) => ({ ...row(key), noteText: n.text })),
+    };
+  }, [ann, translation]);
 
   // La părăsirea editorului, scrie pe disc orice salvare amânată.
   useEffect(() => () => flushSermon(sermon.id), [sermon.id]);
@@ -345,6 +387,20 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
     setVersePick(false);
   }
 
+  // Inserează un rând din taburile Salvate/Evidențieri/Note ca bloc-citat;
+  // nota personală vine sub verset. Panoul rămâne deschis (poți adăuga mai multe).
+  function insertSavedRow(r) {
+    let md = `> **${r.ref}** — „${r.text}” (${translation.attribution})\n`;
+    if (r.noteText) md += `>\n> *Notă:* ${r.noteText.replace(/\n/g, '\n> ')}\n`;
+    md += '\n';
+    edit((val, s, e) => {
+      const lead = s > 0 && val[s - 1] !== '\n' ? '\n\n' : '';
+      const ins = lead + md;
+      const pos = s + ins.length;
+      return { text: val.slice(0, s) + ins + val.slice(e), selStart: pos, selEnd: pos };
+    });
+  }
+
   // Descarcă documentul ca fișier .md (titlul devine numele fișierului).
   function downloadMd() {
     const content = sermon.body.trimStart().startsWith('# ')
@@ -357,6 +413,12 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
     a.click();
     URL.revokeObjectURL(a.href);
   }
+
+  // Lista activă din panoul „+ Verset" (cu filtrul de colecție pe Salvate).
+  const pickList =
+    pickTab === 'bookmarks' && pickColl !== 'all'
+      ? savedRows.bookmarks.filter((r) => r.collection === pickColl)
+      : savedRows[pickTab] ?? [];
 
   return (
     /* Editorul umple tot spațiul rămas după sidebar — lat, cât chenarul
@@ -394,7 +456,7 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
         <TbBtn label="Listă cu puncte" onClick={() => linePrefix('- ')} disabled={preview}>•—</TbBtn>
         <TbBtn label="Listă numerotată" onClick={() => linePrefix('', true)} disabled={preview}>1.</TbBtn>
         <TbBtn label="Citat" onClick={() => linePrefix('> ')} disabled={preview}>„”</TbBtn>
-        <TbBtn label="Inserează un verset după referință" onClick={() => setVersePick((v) => !v)} active={versePick} disabled={preview}>
+        <TbBtn label="Inserează un verset (după referință sau din salvate)" onClick={() => setVersePick((v) => !v)} active={versePick} disabled={preview}>
           + Verset
         </TbBtn>
 
@@ -435,35 +497,143 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
         )}
       </div>
 
-      {/* Alegerea versetului de inserat */}
+      {/* Alegerea versetului de inserat: după referință sau din materialul personal */}
       {versePick && !preview && (
-        <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={verseQuery}
-              onChange={(e) => {
-                setVerseQuery(e.target.value);
-                setVerseError('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') insertVerse();
-                if (e.key === 'Escape') setVersePick(false);
-              }}
-              autoFocus
-              placeholder="ex: ioan 3:16 · isaia 1:1-10 · psalmii 23"
-              aria-label="Referința versetului de inserat"
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
-            />
-            <button
-              type="button"
-              onClick={insertVerse}
-              className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
-            >
-              Inserează
-            </button>
+        <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Sursa versetului de inserat">
+            {PICK_TABS.map((t) => {
+              const n = t.id === 'ref' ? null : savedRows[t.id].length;
+              const active = pickTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setPickTab(t.id)}
+                  className={
+                    'rounded-full border px-2.5 py-1 text-xs transition ' +
+                    (active
+                      ? 'border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800')
+                  }
+                >
+                  {t.label}
+                  {n != null && ` (${n})`}
+                </button>
+              );
+            })}
           </div>
-          {verseError && <p className="px-1 text-xs text-red-600 dark:text-red-400">{verseError}</p>}
+
+          {pickTab === 'ref' ? (
+            <>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={verseQuery}
+                  onChange={(e) => {
+                    setVerseQuery(e.target.value);
+                    setVerseError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') insertVerse();
+                    if (e.key === 'Escape') setVersePick(false);
+                  }}
+                  autoFocus
+                  placeholder="ex: ioan 3:16 · isaia 1:1-10 · psalmii 23"
+                  aria-label="Referința versetului de inserat"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-300"
+                />
+                <button
+                  type="button"
+                  onClick={insertVerse}
+                  className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+                >
+                  Inserează
+                </button>
+              </div>
+              {verseError && <p className="px-1 text-xs text-red-600 dark:text-red-400">{verseError}</p>}
+            </>
+          ) : (
+            <>
+              {pickTab === 'bookmarks' && collections.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtru de colecții">
+                  <button
+                    type="button"
+                    onClick={() => setPickColl('all')}
+                    aria-pressed={pickColl === 'all'}
+                    className={
+                      'rounded-full border px-2 py-0.5 text-xs transition ' +
+                      (pickColl === 'all'
+                        ? 'border-slate-500 bg-slate-100 font-semibold text-slate-900 dark:border-slate-400 dark:bg-slate-800 dark:text-slate-100'
+                        : 'border-slate-200 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800')
+                    }
+                  >
+                    Toate
+                  </button>
+                  {collections.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setPickColl(c)}
+                      aria-pressed={pickColl === c}
+                      className={
+                        'rounded-full border px-2 py-0.5 text-xs transition ' +
+                        (pickColl === c
+                          ? 'border-slate-500 bg-slate-100 font-semibold text-slate-900 dark:border-slate-400 dark:bg-slate-800 dark:text-slate-100'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800')
+                      }
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {pickList.length === 0 ? (
+                <p className="px-1 py-2 text-center text-xs text-slate-400 dark:text-slate-500">
+                  {pickTab === 'bookmarks'
+                    ? pickColl !== 'all'
+                      ? 'Nicio salvare în această colecție.'
+                      : 'Niciun verset salvat încă — folosește semnul de carte din căutare sau cititor.'
+                    : pickTab === 'highlights'
+                      ? 'Nicio evidențiere încă — atinge un verset în cititor și alege o culoare.'
+                      : 'Nicio notă încă — atinge un verset în cititor și apasă „Notă".'}
+                </p>
+              ) : (
+                <ul className="max-h-64 space-y-0.5 overflow-y-auto">
+                  {pickList.map((r) => (
+                    <li key={r.key}>
+                      <button
+                        type="button"
+                        onClick={() => insertSavedRow(r)}
+                        title="Inserează în predică (la poziția cursorului)"
+                        className="w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <span className="flex items-center gap-2">
+                          {r.color && (
+                            <span
+                              className={
+                                'h-2.5 w-2.5 shrink-0 rounded-full ' +
+                                (HIGHLIGHT_COLORS.find((c) => c.id === r.color)?.dot ?? 'bg-slate-300')
+                              }
+                            />
+                          )}
+                          <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-slate-100">{r.ref}</span>
+                          <span className="truncate text-xs text-slate-500 dark:text-slate-400">{r.text}</span>
+                        </span>
+                        {r.noteText && (
+                          <span className="block truncate text-xs italic text-slate-400 dark:text-slate-500">
+                            Notă: {r.noteText}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </div>
       )}
 
