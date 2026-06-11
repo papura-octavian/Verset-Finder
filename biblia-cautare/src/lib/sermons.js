@@ -10,6 +10,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { loadJSON, saveJSON } from './storage.js';
+import { norm } from './search.js';
 
 const LS_KEY = 'biblia:sermons';
 const DB_NAME = 'biblia';
@@ -45,6 +46,20 @@ export const TEMPLATES = [
     ].join('\n'),
   },
 ];
+
+// --- Helperi comuni pentru export (.md / .docx / .pdf) ---
+
+/** Markdown-ul complet al unui document: titlul devine H1 dacă body nu are deja unul. */
+export function sermonMarkdown(sermon) {
+  return sermon.body.trimStart().startsWith('# ')
+    ? sermon.body
+    : `# ${sermon.title}\n\n${sermon.body}`;
+}
+
+/** Numele de fișier (fără extensie) derivat din titlu: „Predica de duminică” → „predica-de-duminica”. */
+export function sermonFileSlug(title) {
+  return norm(title).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'predica';
+}
 
 let state = { loaded: false, sermons: [] };
 const listeners = new Set();
