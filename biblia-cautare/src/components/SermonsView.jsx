@@ -239,10 +239,12 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
     const h = history.current;
     stackForCurrent.push({ val: sermon.body, sel: taRef.current ? taRef.current.selectionStart : 0 });
     h.lastPush = 0; // următoarea tastare începe un pas nou de undo
+    const scrollTop = taRef.current ? taRef.current.scrollTop : 0;
     updateSermon(sermon.id, { body: snap.val });
     requestAnimationFrame(() => {
       taRef.current?.focus();
       taRef.current?.setSelectionRange(snap.sel, snap.sel);
+      if (taRef.current) taRef.current.scrollTop = scrollTop;
     });
   }
 
@@ -257,15 +259,19 @@ function SermonEditor({ sermon, translation, onBack, onDelete }) {
   }
 
   // Aplică o transformare pe corpul documentului păstrând focusul și selecția.
+  // scrollTop trebuie salvat/restaurat manual: rescrierea valorii mută cursorul
+  // la final și focus() derulează acolo, iar setSelectionRange nu derulează înapoi.
   function edit(fn) {
     const ta = taRef.current;
     if (!ta) return;
     pushHistory(true);
     const { text, selStart, selEnd } = fn(sermon.body, ta.selectionStart, ta.selectionEnd);
+    const scrollTop = ta.scrollTop;
     updateSermon(sermon.id, { body: text });
     requestAnimationFrame(() => {
       ta.focus();
       ta.setSelectionRange(selStart, selEnd);
+      ta.scrollTop = scrollTop;
     });
   }
 
