@@ -43,6 +43,22 @@ Traduceri incluse: **Cornilescu corectată (RCCV)** pentru română și
   câte versete îi pomenesc, alfabetic sau cronologic.
 - În cititor, la fiecare verset apar personajele numite în el, cu link spre paginile lor.
 
+### 🗺️ Locuri
+- **Harta lumii biblice** (de la Roma la Babilon) cu toate cele ~1.300 de locuri
+  din Scriptură: tragi, dai zoom (și cu două degete), atingi un punct.
+- Pagina fiecărui loc: **ce s-a întâmplat acolo**, toate versetele în care apare,
+  nota din dicționarul Easton și link spre locul de azi pe Google Maps.
+- Funcționează și offline: harta e desenată din datele Natural Earth, fără
+  servicii de hărți externe.
+
+### 🕰️ Cronologie
+- **Istoria Bibliei pe ani**, de la Creație la Pavel la Roma: ~450 de evenimente,
+  pe epoci (Patriarhii, Exodul, Judecătorii, Regatul…, Viața lui Isus, Biserica primară).
+- La fiecare eveniment: anul, durata, personajele, locurile (deschise pe hartă) și
+  pasajul biblic. Căutare și salt la epocă.
+- Personajele și locurile au și ele lista lor de evenimente; în cititor, la fiecare
+  verset apar personajele și locurile numite în el.
+
 ### 🔊 Ascultă și distribuie
 - **Citire cu voce tare** a capitolului sau de la un verset, cu versetul curent
   evidențiat, pauză, viteză și continuare automată la capitolul următor (vocile
@@ -93,11 +109,14 @@ Datele biblice se generează din surse brute (locale, în `data-src/`, nu intră
 - `buildCrossRefs.mjs` — trimiterile openbible.info → top 10 per verset.
 - `buildPeople.mjs` — personajele din Theographic → `people.json`, cu numele
   românești deduse din RCCV.
+- `buildPlaces.mjs` — locurile, evenimentele (Theographic) și harta de fundal
+  (Natural Earth) → `places.json`, `events.json`, `basemap.json`.
 
 Detalii tehnice: [biblia-cautare/README.md](biblia-cautare/README.md).
 
 ## Licență / surse
 
 Codul: **MIT** ([LICENSE](LICENSE)). Textele biblice (domeniu public),
-trimiterile (CC-BY openbible.info) și personajele (CC BY-SA 4.0, Theographic): vezi
+trimiterile (CC-BY openbible.info), personajele, locurile și evenimentele (CC BY-SA 4.0,
+Theographic) și harta (Natural Earth, domeniu public): vezi
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

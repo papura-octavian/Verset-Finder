@@ -55,8 +55,19 @@ variantele convertite din `biblia-cautare/src/data/`.
 - **Modificări:** set restrâns la câmpurile folosite, referințele convertite la
   abrevierile aplicației și nume românești adăugate automat (deduse din textul
   RCCV). Fișierul derivat se distribuie sub aceeași licență, CC BY-SA 4.0.
-- **Fișier în repository:** `biblia-cautare/src/data/people.json`
-  (convertit cu `biblia-cautare/scripts/buildPeople.mjs`).
+- **Fișiere în repository:** `biblia-cautare/src/data/people.json`,
+  `places.json` (locurile, cu coordonatele OpenBible.info incluse în același set)
+  și `events.json` (evenimentele cronologiei, cu titluri traduse în română),
+  convertite cu `biblia-cautare/scripts/buildPeople.mjs` și `buildPlaces.mjs`.
+
+## 6. Harta de fundal (pagina „Locuri")
+
+- **Sursă:** Natural Earth (https://www.naturalearthdata.com), straturile 1:10m
+  pentru uscat, lacuri și râuri (prin github.com/nvkelso/natural-earth-vector).
+- **Statut:** domeniu public.
+- **Modificări:** decupate pe regiunea lumii biblice și simplificate.
+- **Fișier în repository:** `biblia-cautare/src/data/basemap.json`
+  (convertit cu `biblia-cautare/scripts/buildPlaces.mjs`).
 
 ---
 

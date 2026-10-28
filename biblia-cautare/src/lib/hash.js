@@ -4,7 +4,7 @@
 //   #<trad>/<carte>.<capitol>[.<verset>]   → cititor-overlay (ex. #rccv/jo.3.16, #rccv/ps.23)
 //   #<trad>/r/<carte>.<capitol>[.<verset>] → pagina Citește (ex. #rccv/r/jo.3)
 //   #<trad>/q=<căutare>                     → căutare reluată din link (ex. #rccv/q=credinta)
-//   #<trad>/p/<saved|sermons|people>[/<x>]  → paginile Salvate / Predici / Personaje (x = persoana)
+//   #<trad>/p/<pagină>[/<x>]                → Salvate, Predici, Personaje, Locuri, Cronologie (x = persoana / locul / evenimentul)
 //
 // Notă: abrevierile de cărți pot conține cifre (1sm, 2co, 1jo), dar NICIODATĂ punct,
 // deci putem împărți partea de referință după „." fără ambiguitate:
@@ -18,7 +18,7 @@
 const LEGACY_TRANSLATIONS = { vdc: 'rccv', kjv: 'asv' };
 
 // Paginile fără poziție proprie, adresabile ca #<trad>/p/<pagină> (ca Back să le parcurgă).
-const PAGES = ['saved', 'sermons', 'people'];
+const PAGES = ['saved', 'sermons', 'people', 'places', 'timeline'];
 
 /** Hash-ul unei pagini (Salvate / Predici / Personaje), opțional cu un element (persoana). */
 export function formatPage(translation, page, sub = null) {

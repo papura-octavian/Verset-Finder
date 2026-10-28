@@ -31,7 +31,7 @@ const DEFAULT_SIZE = 2; // text-lg, confortabil pentru citit
  * Controlat: primește `target` { abbrev, chapter, verse|null } și raportează prin
  * `onNavigate`, ca App să sincronizeze URL-ul.
  */
-export default function ChapterView({ translation, target, onNavigate, onOpenPerson = null, onClose = null, pageMode = false }) {
+export default function ChapterView({ translation, target, onNavigate, onOpenPerson = null, onOpenPlace = null, onClose = null, pageMode = false }) {
   const { abbrev, chapter, verse } = target;
   const verses = getChapterVerses(translation, abbrev, chapter);
   const total = chapterCount(translation, abbrev);
@@ -190,6 +190,7 @@ export default function ChapterView({ translation, target, onNavigate, onOpenPer
         translation={translation}
         onGoTo={onNavigate}
         onOpenPerson={onOpenPerson}
+        onOpenPlace={onOpenPlace}
         onListen={speechSupported ? () => startListening(n) : null}
       />
     );

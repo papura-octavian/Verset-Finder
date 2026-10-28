@@ -6,6 +6,7 @@ import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote, parseVerseKey 
 import { getCrossRefs } from '../lib/crossrefs.js';
 import { bookName, getChapterVerses } from '../lib/reader.js';
 import { peopleInVerse, personName, personSubtitle } from '../lib/people.js';
+import { placesInVerse, placeName } from '../lib/places.js';
 import VerseImage from './VerseImage.jsx';
 
 // Stiluri comune pentru butoanele-pastilă (aceeași linie ca subsolul cititorului).
@@ -20,10 +21,11 @@ const BTN_DARK = 'border-slate-900 bg-slate-900 text-white dark:border-slate-100
  * Starea curentă vine ca props (părintele e abonat la store prin useAnnotations);
  * acțiunile scriu direct în store (annotations.js).
  */
-export default function VerseActions({ verseKey: k, bookmarked, collection = null, color, note, copyPayload, translation, onGoTo, onOpenPerson = null, onListen = null }) {
+export default function VerseActions({ verseKey: k, bookmarked, collection = null, color, note, copyPayload, translation, onGoTo, onOpenPerson = null, onOpenPlace = null, onListen = null }) {
   const [imageOpen, setImageOpen] = useState(false);
   // Personajele numite în verset (fără Dumnezeu, care e aproape peste tot), cu link spre pagina lor.
   const people = onOpenPerson ? peopleInVerse(k).filter((p) => p.en !== 'God') : [];
+  const places = onOpenPlace ? placesInVerse(k) : [];
   const [noteOpen, setNoteOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
@@ -184,9 +186,9 @@ export default function VerseActions({ verseKey: k, bookmarked, collection = nul
         />
       )}
 
-      {people.length > 0 && (
+      {(people.length > 0 || places.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
-          <span className="text-xs text-slate-400 dark:text-slate-500">Personaje:</span>
+          {people.length > 0 && <span className="text-xs text-slate-400 dark:text-slate-500">Personaje:</span>}
           {people.map((p) => (
             <button
               key={p.id}
@@ -196,6 +198,18 @@ export default function VerseActions({ verseKey: k, bookmarked, collection = nul
               className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               {personName(p)}
+            </button>
+          ))}
+          {places.length > 0 && <span className="text-xs text-slate-400 dark:text-slate-500">Locuri:</span>}
+          {places.map((p) => (
+            <button
+              key={'l' + p.id}
+              type="button"
+              onClick={() => onOpenPlace(p.slug)}
+              title="Deschide pe hartă"
+              className="rounded-full border border-amber-200 px-2 py-0.5 text-xs text-amber-900 transition hover:bg-amber-50 dark:border-amber-900/60 dark:text-amber-200 dark:hover:bg-amber-950/40"
+            >
+              📍 {placeName(p)}
             </button>
           ))}
         </div>

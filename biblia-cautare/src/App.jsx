@@ -8,6 +8,9 @@ import NavDrawer from './components/NavDrawer.jsx';
 import SavedView from './components/SavedView.jsx';
 import SermonsView from './components/SermonsView.jsx';
 import PeopleView from './components/PeopleView.jsx';
+import PlacesView from './components/PlacesView.jsx';
+import TimelineView from './components/TimelineView.jsx';
+import { ExploreTabs } from './components/Explore.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
@@ -59,8 +62,11 @@ export default function App() {
       ? { abbrev: p.abbrev, chapter: p.chapter, verse: p.verse ?? null }
       : { abbrev: 'gn', chapter: 1, verse: null };
   });
-  // Personajul deschis pe pagina Personaje (slug), sau null pentru listă.
-  const [personSlug, setPersonSlug] = useState(null);
+  // Elementul deschis pe paginile de explorare: personajul / locul (slug) / evenimentul (id).
+  const [sub, setSub] = useState({ people: null, places: null, timeline: null });
+  const personSlug = sub.people;
+  // Ultima pagină de explorare vizitată (fila „Explorează" duce înapoi la ea).
+  const lastExploreRef = useRef('people');
   // Sertarul de navigație (☰).
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Rezultatul selectat cu tastatura (↑↓); -1 = niciunul.
@@ -208,7 +214,10 @@ export default function App() {
       if (wanted !== translationRef.current) setTranslation(wanted);
       if (readerRef.current) setReader(null);
       setView(parsed.page);
-      if (parsed.page === 'people') setPersonSlug(parsed.sub);
+      if (EXPLORE.includes(parsed.page)) {
+        const val = parsed.page === 'timeline' ? (parsed.sub ? Number(parsed.sub) : null) : parsed.sub;
+        setSub((s) => ({ ...s, [parsed.page]: val }));
+      }
       return;
     }
     if (parsed.type === 'reader' || parsed.type === 'read') {
@@ -292,10 +301,10 @@ export default function App() {
     if (view === 'read') {
       const h = formatRead(translation, readPos.abbrev, readPos.chapter, readPos.verse);
       if (window.location.hash !== h) window.history.replaceState(null, '', h);
-    } else if (view === 'saved' || view === 'sermons' || view === 'people') {
+    } else if (view === 'saved' || view === 'sermons' || EXPLORE.includes(view)) {
       // Cât e deschis cititorul-overlay, URL-ul e al lui.
       if (readerRef.current) return;
-      const h = formatPage(translation, view, view === 'people' ? personSlug : null);
+      const h = formatPage(translation, view, sub[view] ?? null);
       if (window.location.hash !== h) window.history.replaceState(null, '', h);
     } else {
       const cur = parseHash(window.location.hash);
@@ -303,7 +312,7 @@ export default function App() {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     }
-  }, [view, readPos, translation, personSlug]);
+  }, [view, readPos, translation, sub]);
 
   const debouncedQuery = useDebounced(query, 150);
   const debouncedChapters = useDebounced(chapters, 150);
@@ -394,29 +403,35 @@ export default function App() {
   pageHashRef.current = () =>
     view === 'read'
       ? formatRead(translation, readPos.abbrev, readPos.chapter, readPos.verse)
-      : view === 'saved' || view === 'sermons' || view === 'people'
-        ? formatPage(translation, view, view === 'people' ? personSlug : null)
+      : view === 'saved' || view === 'sermons' || EXPLORE.includes(view)
+        ? formatPage(translation, view, sub[view] ?? null)
         : '';
 
   // Schimbarea paginii adaugă o intrare în istoric, ca Back să revină la pagina anterioară.
-  // `sub` = personajul, pe pagina Personaje.
-  const navigate = useCallback((next, sub = null) => {
+  // `item` = personajul / locul / evenimentul, pe paginile de explorare.
+  // „explore" (fila de pe telefon) = ultima pagină de explorare vizitată.
+  const navigate = useCallback((target, item = null) => {
+    const next = target === 'explore' ? lastExploreRef.current : target;
+    if (EXPLORE.includes(next)) lastExploreRef.current = next;
     const t = translationRef.current;
     const h =
       next === 'read'
         ? formatRead(t, readPosRef.current.abbrev, readPosRef.current.chapter, readPosRef.current.verse)
-        : next === 'saved' || next === 'sermons' || next === 'people'
-          ? formatPage(t, next, next === 'people' ? sub : null)
+        : next === 'saved' || next === 'sermons' || EXPLORE.includes(next)
+          ? formatPage(t, next, item)
           : window.location.pathname + window.location.search;
     const cur = window.location.hash ? window.location.hash : window.location.pathname + window.location.search;
     if (cur !== h) window.history.pushState(null, '', h);
     setReader(null);
-    if (next === 'people') setPersonSlug(sub);
+    if (EXPLORE.includes(next)) setSub((s) => ({ ...s, [next]: item }));
     setView(next);
-    window.scrollTo(0, 0);
+    // Pe hartă, alegerea unui loc nu derulează pagina (harta rămâne unde e).
+    if (next !== 'places' || item == null) window.scrollTo(0, 0);
   }, []);
 
   const openPerson = useCallback((slug) => navigate('people', slug), [navigate]);
+  const openPlace = useCallback((slug) => navigate('places', slug), [navigate]);
+  const openEvent = useCallback((id) => navigate('timeline', id), [navigate]);
 
   // Din pagina unui personaj: „caută numele în toată Biblia".
   const searchFor = useCallback(
@@ -454,7 +469,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       {/* Pagina Predici folosește toată lățimea ecranului (layout tip Obsidian);
           restul paginilor rămân pe coloana îngustă de citit/căutat. */}
-      <div className={'mx-auto px-4 pb-24 pt-6 sm:py-8 ' + (view === 'sermons' ? 'max-w-none sm:px-6' : 'max-w-3xl')}>
+      <div className={'mx-auto px-4 pb-24 pt-6 sm:py-8 ' + (view === 'sermons' ? 'max-w-none sm:px-6' : view === 'places' ? 'max-w-6xl' : 'max-w-3xl')}>
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -481,7 +496,11 @@ export default function App() {
                     ? 'Predici'
                     : view === 'people'
                       ? 'Personaje'
-                      : 'Verset Finder'}
+                      : view === 'places'
+                        ? 'Locuri'
+                        : view === 'timeline'
+                          ? 'Cronologie'
+                          : 'Verset Finder'}
             </h1>
           </div>
 
@@ -523,6 +542,7 @@ export default function App() {
               target={readPos}
               onNavigate={setReadPos}
               onOpenPerson={openPerson}
+              onOpenPlace={openPlace}
               pageMode
             />
           </div>
@@ -537,12 +557,39 @@ export default function App() {
         ) : view === 'people' ? (
           /* Pagina Personaje: wiki + genealogie pentru fiecare persoană din Biblie. */
           <div className="mx-auto max-w-2xl">
+            <ExploreTabs view={view} onNavigate={navigate} />
             <PeopleView
               translation={TRANSLATIONS[translation]}
               slug={personSlug}
               onOpenPerson={openPerson}
+              onOpenEvent={openEvent}
               onOpenVerse={openReader}
               onSearch={searchFor}
+            />
+          </div>
+        ) : view === 'places' ? (
+          /* Pagina Locuri: harta lumii biblice + o pagină pentru fiecare loc. */
+          <div>
+            <ExploreTabs view={view} onNavigate={navigate} />
+            <PlacesView
+              translation={TRANSLATIONS[translation]}
+              slug={sub.places}
+              onOpenPlace={openPlace}
+              onOpenEvent={openEvent}
+              onOpenVerse={openReader}
+              onSearch={searchFor}
+            />
+          </div>
+        ) : view === 'timeline' ? (
+          /* Pagina Cronologie: evenimentele Bibliei pe ani și epoci. */
+          <div className="mx-auto max-w-2xl">
+            <ExploreTabs view={view} onNavigate={navigate} />
+            <TimelineView
+              translation={TRANSLATIONS[translation]}
+              eventId={sub.timeline}
+              onOpenPerson={openPerson}
+              onOpenPlace={openPlace}
+              onOpenVerse={openReader}
             />
           </div>
         ) : (
@@ -641,6 +688,7 @@ export default function App() {
           target={reader}
           onNavigate={setReader}
           onOpenPerson={openPerson}
+          onOpenPlace={openPlace}
           onClose={() => setReader(null)}
         />
       )}
@@ -655,11 +703,14 @@ function refLabel(results) {
   return results.length === 1 ? a.ref : `${a.book} ${a.chapter}:${a.verse}-${b.verse}`;
 }
 
+// Paginile grupate sub fila „Explorează".
+const EXPLORE = ['people', 'places', 'timeline'];
+
 const PAGE_TABS = [
   { id: 'search', label: 'Caută', icon: 'M21 21l-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z' },
   { id: 'read', label: 'Citește', icon: 'M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2ZM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7Z' },
   { id: 'saved', label: 'Salvate', icon: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z' },
-  { id: 'people', label: 'Personaje', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { id: 'explore', label: 'Explorează', icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12Z' },
   { id: 'sermons', label: 'Predici', icon: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z' },
 ];
 
@@ -668,7 +719,7 @@ function PageTabs({ view, onNavigate, bottom = false, className = '' }) {
   return (
     <div className={(bottom ? 'mx-auto grid max-w-md grid-cols-5' : 'items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900') + ' ' + className}>
       {PAGE_TABS.map((p) => {
-        const active = view === p.id;
+        const active = view === p.id || (p.id === 'explore' && EXPLORE.includes(view));
         return (
           <button
             key={p.id}

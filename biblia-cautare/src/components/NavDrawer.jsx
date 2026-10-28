@@ -8,6 +8,8 @@ const PAGES = [
   { id: 'read', label: 'Citește', icon: BookIcon, desc: 'Citește Biblia capitol cu capitol' },
   { id: 'saved', label: 'Salvate', icon: BookmarkIcon, desc: 'Semne de carte, evidențieri și note' },
   { id: 'people', label: 'Personaje', icon: PeopleIcon, desc: 'Genealogie și wiki pentru fiecare persoană' },
+  { id: 'places', label: 'Locuri', icon: MapIcon, desc: 'Harta lumii biblice' },
+  { id: 'timeline', label: 'Cronologie', icon: ClockIcon, desc: 'Evenimentele Bibliei pe ani' },
   { id: 'sermons', label: 'Predici', icon: PenIcon, desc: 'Scrie, organizează și prezintă predici' },
 ];
 
@@ -161,6 +163,24 @@ function PeopleIcon() {
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function MapIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z" />
+      <path d="M9 3v15M15 6v15" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
     </svg>
   );
 }

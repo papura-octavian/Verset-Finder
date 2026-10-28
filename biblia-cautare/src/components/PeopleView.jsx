@@ -14,6 +14,7 @@ import {
 } from '../lib/people.js';
 import { parseVerseKey } from '../lib/annotations.js';
 import { getChapterVerses, bookName } from '../lib/reader.js';
+import { eventsOfPerson, eventTitle, fmtSpan } from '../lib/events.js';
 
 const PAGE = 60;
 const CARD = 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900';
@@ -24,7 +25,7 @@ const CARD = 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bor
  * strămoși până la Adam, urmași, toate versetele în care apare și articolul din
  * dicționarul Easton. `slug` alege persoana (null = lista).
  */
-export default function PeopleView({ translation, slug, onOpenPerson, onOpenVerse, onSearch }) {
+export default function PeopleView({ translation, slug, onOpenPerson, onOpenEvent, onOpenVerse, onSearch }) {
   const person = slug ? personBySlug(slug) : null;
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -38,6 +39,7 @@ export default function PeopleView({ translation, slug, onOpenPerson, onOpenVers
         onOpenPerson={onOpenPerson}
         onOpenVerse={onOpenVerse}
         onSearch={onSearch}
+        onOpenEvent={onOpenEvent}
       />
     );
   }
@@ -164,7 +166,8 @@ function PeopleList({ onOpenPerson }) {
   );
 }
 
-function PersonPage({ person: p, translation, onOpenPerson, onOpenVerse, onSearch }) {
+function PersonPage({ person: p, translation, onOpenPerson, onOpenEvent, onOpenVerse, onSearch }) {
+  const events = useMemo(() => eventsOfPerson(p.id), [p]);
   const name = personName(p);
   const verses = useMemo(() => personVerses(p), [p]);
   const line = useMemo(() => ancestry(p), [p]);
@@ -276,6 +279,26 @@ function PersonPage({ person: p, translation, onOpenPerson, onOpenVerse, onSearc
         <section className={CARD}>
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Urmași</h3>
           <DescendantTree ids={p.ch} depth={0} onOpen={onOpenPerson} seen={new Set([p.id])} />
+        </section>
+      )}
+
+      {events.length > 0 && (
+        <section className={CARD}>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Evenimente</h3>
+          <ul className="space-y-1.5">
+            {events.map((e) => (
+              <li key={e.id} className="flex items-baseline gap-2">
+                <span className="w-28 shrink-0 text-right text-xs tabular-nums text-slate-400 dark:text-slate-500">{fmtSpan(e)}</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenEvent(e.id)}
+                  className="text-left text-sm text-slate-800 underline-offset-2 hover:underline dark:text-slate-200"
+                >
+                  {eventTitle(e)}
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
