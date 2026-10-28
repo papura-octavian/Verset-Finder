@@ -8,7 +8,7 @@ import { useScrollLock } from '../lib/useScrollLock.js';
  * Tot conținutul (antet, versete, comparație, setări) e în `ChapterView`,
  * partajat cu pagina Citește (`ReadView`).
  */
-export default function Reader({ translation, target, onNavigate, onClose }) {
+export default function Reader({ translation, target, onNavigate, onOpenPerson, onClose }) {
   // Cât e deschis, pagina din spate nu derulează (doar conținutul cititorului).
   useScrollLock();
 
@@ -34,7 +34,7 @@ export default function Reader({ translation, target, onNavigate, onClose }) {
         if (e.target === e.currentTarget) onClose(); // click pe fundal = închide
       }}
     >
-      <ChapterView translation={translation} target={target} onNavigate={onNavigate} onClose={onClose} />
+      <ChapterView translation={translation} target={target} onNavigate={onNavigate} onOpenPerson={onOpenPerson} onClose={onClose} />
     </div>
   );
 }

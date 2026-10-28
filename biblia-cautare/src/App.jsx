@@ -7,12 +7,13 @@ import ChapterView from './components/ChapterView.jsx';
 import NavDrawer from './components/NavDrawer.jsx';
 import SavedView from './components/SavedView.jsx';
 import SermonsView from './components/SermonsView.jsx';
+import PeopleView from './components/PeopleView.jsx';
 import VerseOfDay from './components/VerseOfDay.jsx';
 import { buildIndex, chapterCounts } from './lib/buildIndex.js';
 import { search, norm, parseChapterSpec } from './lib/search.js';
-import { parseReference, referenceVerses } from './lib/reference.js';
+import { parseReference, referenceVerses, detectReference } from './lib/reference.js';
 import { verseOfDay } from './lib/verseOfDay.js';
-import { parseHash, formatReader, formatRead } from './lib/hash.js';
+import { parseHash, formatReader, formatRead, formatPage } from './lib/hash.js';
 import { loadJSON, saveJSON } from './lib/storage.js';
 import { TRANSLATIONS, TRANSLATION_LIST, DEFAULT_TRANSLATION } from './lib/translations.js';
 import { bookList as toBookList } from './data/books.js';
@@ -58,6 +59,8 @@ export default function App() {
       ? { abbrev: p.abbrev, chapter: p.chapter, verse: p.verse ?? null }
       : { abbrev: 'gn', chapter: 1, verse: null };
   });
+  // Personajul deschis pe pagina Personaje (slug), sau null pentru listă.
+  const [personSlug, setPersonSlug] = useState(null);
   // Sertarul de navigație (☰).
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Rezultatul selectat cu tastatura (↑↓); -1 = niciunul.
@@ -195,10 +198,19 @@ export default function App() {
   const applyHash = useCallback((raw) => {
     const parsed = parseHash(raw);
     if (!parsed) {
-      if (readerRef.current) setReader(null); // back către o stare fără cititor
+      // Back către o stare fără hash: pagina Caută, fără cititor.
+      if (readerRef.current) setReader(null);
+      setView('search');
       return;
     }
     const wanted = TRANSLATIONS[parsed.translation] ? parsed.translation : translationRef.current;
+    if (parsed.type === 'page') {
+      if (wanted !== translationRef.current) setTranslation(wanted);
+      if (readerRef.current) setReader(null);
+      setView(parsed.page);
+      if (parsed.page === 'people') setPersonSlug(parsed.sub);
+      return;
+    }
     if (parsed.type === 'reader' || parsed.type === 'read') {
       const book = TRANSLATIONS[wanted].data.find((b) => b.abbrev === parsed.abbrev);
       if (!book) return;
@@ -261,7 +273,8 @@ export default function App() {
       if (wasReaderOpenRef.current) {
         const cur = parseHash(window.location.hash);
         if (cur && cur.type === 'reader') {
-          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          // Cititorul deschis peste o pagină (Salvate, un personaj…) lasă în URL pagina de dedesubt.
+          window.history.replaceState(null, '', pageHashRef.current() || window.location.pathname + window.location.search);
         }
       }
       wasReaderOpenRef.current = false;
@@ -279,13 +292,18 @@ export default function App() {
     if (view === 'read') {
       const h = formatRead(translation, readPos.abbrev, readPos.chapter, readPos.verse);
       if (window.location.hash !== h) window.history.replaceState(null, '', h);
+    } else if (view === 'saved' || view === 'sermons' || view === 'people') {
+      // Cât e deschis cititorul-overlay, URL-ul e al lui.
+      if (readerRef.current) return;
+      const h = formatPage(translation, view, view === 'people' ? personSlug : null);
+      if (window.location.hash !== h) window.history.replaceState(null, '', h);
     } else {
       const cur = parseHash(window.location.hash);
       if (cur && cur.type === 'read') {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     }
-  }, [view, readPos, translation]);
+  }, [view, readPos, translation, personSlug]);
 
   const debouncedQuery = useDebounced(query, 150);
   const debouncedChapters = useDebounced(chapters, 150);
@@ -296,11 +314,17 @@ export default function App() {
   const attribution = TRANSLATIONS[translation].attribution;
 
   // Mod referință: query începe cu „@" → aducem un pasaj după referință, nu cuvinte.
+  // Fără „@", o referință clară („ioan 3:16", „ps 23") e recunoscută automat;
+  // „Caută ca text" o tratează totuși ca pe o căutare de cuvinte.
+  const [textOnly, setTextOnly] = useState(false);
+  useEffect(() => setTextOnly(false), [debouncedQuery]);
   const refInfo = useMemo(() => {
     const q = debouncedQuery.trim();
-    if (!q.startsWith('@')) return null;
-    return parseReference(q, TRANSLATIONS[translation]); // {abbrev,...} | {error}
-  }, [debouncedQuery, translation]);
+    if (q.startsWith('@')) return parseReference(q, TRANSLATIONS[translation]); // {abbrev,...} | {error}
+    if (textOnly) return null;
+    const detected = detectReference(q, TRANSLATIONS[translation]);
+    return detected ? { ...detected, auto: true } : null;
+  }, [debouncedQuery, translation, textOnly]);
 
   const results = useMemo(() => {
     if (!index || !debouncedQuery.trim()) return null;
@@ -360,6 +384,49 @@ export default function App() {
     setReader({ abbrev: r.abbrev, chapter: r.chapter, verse: r.verse ?? null });
   }, []);
 
+  const readPosRef = useRef(readPos);
+  useEffect(() => {
+    readPosRef.current = readPos;
+  }, [readPos]);
+
+  // Hash-ul paginii curente (fără cititorul-overlay), ținut într-o ref pentru efectele cu deps fixe.
+  const pageHashRef = useRef(() => '');
+  pageHashRef.current = () =>
+    view === 'read'
+      ? formatRead(translation, readPos.abbrev, readPos.chapter, readPos.verse)
+      : view === 'saved' || view === 'sermons' || view === 'people'
+        ? formatPage(translation, view, view === 'people' ? personSlug : null)
+        : '';
+
+  // Schimbarea paginii adaugă o intrare în istoric, ca Back să revină la pagina anterioară.
+  // `sub` = personajul, pe pagina Personaje.
+  const navigate = useCallback((next, sub = null) => {
+    const t = translationRef.current;
+    const h =
+      next === 'read'
+        ? formatRead(t, readPosRef.current.abbrev, readPosRef.current.chapter, readPosRef.current.verse)
+        : next === 'saved' || next === 'sermons' || next === 'people'
+          ? formatPage(t, next, next === 'people' ? sub : null)
+          : window.location.pathname + window.location.search;
+    const cur = window.location.hash ? window.location.hash : window.location.pathname + window.location.search;
+    if (cur !== h) window.history.pushState(null, '', h);
+    setReader(null);
+    if (next === 'people') setPersonSlug(sub);
+    setView(next);
+    window.scrollTo(0, 0);
+  }, []);
+
+  const openPerson = useCallback((slug) => navigate('people', slug), [navigate]);
+
+  // Din pagina unui personaj: „caută numele în toată Biblia".
+  const searchFor = useCallback(
+    (q) => {
+      navigate('search');
+      setQuery(q);
+    },
+    [navigate]
+  );
+
   // Filtru rapid VT/NT: scopează la un testament și resetează cartea (scop unic, coerent).
   function handleTestamentChange(value) {
     setTestament(value);
@@ -387,7 +454,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       {/* Pagina Predici folosește toată lățimea ecranului (layout tip Obsidian);
           restul paginilor rămân pe coloana îngustă de citit/căutat. */}
-      <div className={'mx-auto px-4 py-6 sm:py-8 ' + (view === 'sermons' ? 'max-w-none sm:px-6' : 'max-w-3xl')}>
+      <div className={'mx-auto px-4 pb-24 pt-6 sm:py-8 ' + (view === 'sermons' ? 'max-w-none sm:px-6' : 'max-w-3xl')}>
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -412,7 +479,9 @@ export default function App() {
                   ? 'Salvate'
                   : view === 'sermons'
                     ? 'Predici'
-                    : 'Verset Finder'}
+                    : view === 'people'
+                      ? 'Personaje'
+                      : 'Verset Finder'}
             </h1>
           </div>
 
@@ -443,6 +512,9 @@ export default function App() {
           </div>
         </header>
 
+        {/* Paginile, mereu vizibile de la tabletă în sus (pe telefon: bara de jos). */}
+        <PageTabs view={view} onNavigate={navigate} className="-mt-2 mb-6 hidden w-fit sm:flex" />
+
         {view === 'read' ? (
           /* Pagina Citește: același renderer de capitol ca overlay-ul, în pagină. */
           <div className="mx-auto max-w-2xl">
@@ -450,6 +522,7 @@ export default function App() {
               translation={TRANSLATIONS[translation]}
               target={readPos}
               onNavigate={setReadPos}
+              onOpenPerson={openPerson}
               pageMode
             />
           </div>
@@ -461,6 +534,17 @@ export default function App() {
         ) : view === 'sermons' ? (
           /* Pagina Predici: editorul de predici (folosește toată lățimea). */
           <SermonsView translation={TRANSLATIONS[translation]} />
+        ) : view === 'people' ? (
+          /* Pagina Personaje: wiki + genealogie pentru fiecare persoană din Biblie. */
+          <div className="mx-auto max-w-2xl">
+            <PeopleView
+              translation={TRANSLATIONS[translation]}
+              slug={personSlug}
+              onOpenPerson={openPerson}
+              onOpenVerse={openReader}
+              onSearch={searchFor}
+            />
+          </div>
         ) : (
           <>
             <SearchBar
@@ -491,6 +575,20 @@ export default function App() {
                 <VerseOfDay verse={votd} attribution={attribution} />
               ) : (
                 <>
+                  {refInfo?.auto && results.length > 0 && (
+                    <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                      <span>
+                        Pasaj: <strong className="text-slate-800 dark:text-slate-200">{refLabel(results)}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setTextOnly(true)}
+                        className="rounded-md px-1.5 py-0.5 text-xs underline decoration-dotted underline-offset-2 transition hover:bg-slate-200 dark:hover:bg-slate-800"
+                      >
+                        caută cuvintele în schimb
+                      </button>
+                    </p>
+                  )}
                   {results.length > 0 && (
                     <div className="mb-3">
                       <input
@@ -522,10 +620,18 @@ export default function App() {
         )}
       </div>
 
+      {/* Bara de pagini de pe telefon, la îndemâna degetului mare (ChapterView își ridică subsolul deasupra ei). */}
+      <nav
+        aria-label="Pagini"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-slate-800 dark:bg-slate-950/95"
+      >
+        <PageTabs view={view} onNavigate={navigate} bottom />
+      </nav>
+
       <NavDrawer
         open={drawerOpen}
         view={view}
-        onNavigate={setView}
+        onNavigate={navigate}
         onClose={() => setDrawerOpen(false)}
       />
 
@@ -534,9 +640,58 @@ export default function App() {
           translation={TRANSLATIONS[translation]}
           target={reader}
           onNavigate={setReader}
+          onOpenPerson={openPerson}
           onClose={() => setReader(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** Eticheta pasajului recunoscut: „Ioan 3:16" sau „Psalmii 23:1-6". */
+function refLabel(results) {
+  const a = results[0];
+  const b = results[results.length - 1];
+  return results.length === 1 ? a.ref : `${a.book} ${a.chapter}:${a.verse}-${b.verse}`;
+}
+
+const PAGE_TABS = [
+  { id: 'search', label: 'Caută', icon: 'M21 21l-4.3-4.3M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z' },
+  { id: 'read', label: 'Citește', icon: 'M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2ZM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7Z' },
+  { id: 'saved', label: 'Salvate', icon: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z' },
+  { id: 'people', label: 'Personaje', icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { id: 'sermons', label: 'Predici', icon: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z' },
+];
+
+/** Comutatorul de pagini: rând de file în antet, sau bara de jos pe telefon (`bottom`). */
+function PageTabs({ view, onNavigate, bottom = false, className = '' }) {
+  return (
+    <div className={(bottom ? 'mx-auto grid max-w-md grid-cols-5' : 'items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900') + ' ' + className}>
+      {PAGE_TABS.map((p) => {
+        const active = view === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onNavigate(p.id)}
+            aria-current={active ? 'page' : undefined}
+            className={
+              bottom
+                ? 'flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ' +
+                  (active ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200')
+                : 'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ' +
+                  (active
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+            }
+          >
+            <svg width={bottom ? 22 : 16} height={bottom ? 22 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active && bottom ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
+              <path d={p.icon} />
+            </svg>
+            {p.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

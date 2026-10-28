@@ -4,7 +4,9 @@ import CollectionPicker from './CollectionPicker.jsx';
 import { copyText } from '../lib/clipboard.js';
 import { HIGHLIGHT_COLORS, toggleBookmark, setHighlight, setNote, parseVerseKey } from '../lib/annotations.js';
 import { getCrossRefs } from '../lib/crossrefs.js';
-import { bookName } from '../lib/reader.js';
+import { bookName, getChapterVerses } from '../lib/reader.js';
+import { peopleInVerse, personName, personSubtitle } from '../lib/people.js';
+import VerseImage from './VerseImage.jsx';
 
 // Stiluri comune pentru butoanele-pastilă (aceeași linie ca subsolul cititorului).
 const BTN = 'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs leading-none transition ';
@@ -18,7 +20,10 @@ const BTN_DARK = 'border-slate-900 bg-slate-900 text-white dark:border-slate-100
  * Starea curentă vine ca props (părintele e abonat la store prin useAnnotations);
  * acțiunile scriu direct în store (annotations.js).
  */
-export default function VerseActions({ verseKey: k, bookmarked, collection = null, color, note, copyPayload, translation, onGoTo }) {
+export default function VerseActions({ verseKey: k, bookmarked, collection = null, color, note, copyPayload, translation, onGoTo, onOpenPerson = null, onListen = null }) {
+  const [imageOpen, setImageOpen] = useState(false);
+  // Personajele numite în verset (fără Dumnezeu, care e aproape peste tot), cu link spre pagina lor.
+  const people = onOpenPerson ? peopleInVerse(k).filter((p) => p.en !== 'God') : [];
   const [noteOpen, setNoteOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
@@ -31,8 +36,18 @@ export default function VerseActions({ verseKey: k, bookmarked, collection = nul
   const pos = parseVerseKey(k);
   const refs = getCrossRefs(pos.abbrev, pos.chapter, pos.verse);
   const refLabel = `${bookName(translation, pos.abbrev)} ${pos.chapter}:${pos.verse}`;
+  const verseText = getChapterVerses(translation, pos.abbrev, pos.chapter)?.[pos.verse - 1] ?? '';
 
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+
+  // Atingerea altui verset (sau navigarea) închide bara: o notă începută nu se
+  // pierde, ci se salvează. „Renunță" închide editorul înainte, deci nu salvează.
+  const pendingNote = useRef(null);
+  // (Un text golit nu șterge nota pe tăcute — pentru asta e „Șterge nota".)
+  pendingNote.current = noteOpen && draft.trim() && draft.trim() !== (note?.text ?? '') ? draft : null;
+  useEffect(() => () => {
+    if (pendingNote.current != null) setNote(k, pendingNote.current);
+  }, [k]);
 
   // La deschiderea editorului pornește de la nota existentă; focus pe textarea.
   function openNote() {
@@ -146,8 +161,45 @@ export default function VerseActions({ verseKey: k, bookmarked, collection = nul
           </button>
         )}
 
+        {onListen && (
+          <button type="button" onClick={onListen} title="Citește cu voce tare de la acest verset" className={BTN + BTN_OFF}>
+            <SpeakerIcon />
+            Ascultă de aici
+          </button>
+        )}
+
+        <button type="button" onClick={() => setImageOpen(true)} title="Fă o imagine cu versetul (pentru WhatsApp, Instagram…)" className={BTN + BTN_OFF}>
+          <ImageIcon />
+          Imagine
+        </button>
+
         {copied && <span className="text-xs text-emerald-600 dark:text-emerald-400">Copiat!</span>}
       </div>
+
+      {imageOpen && (
+        <VerseImage
+          text={verseText}
+          reference={`${refLabel} (${translation.attribution})`}
+          onClose={() => setImageOpen(false)}
+        />
+      )}
+
+      {people.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
+          <span className="text-xs text-slate-400 dark:text-slate-500">Personaje:</span>
+          {people.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onOpenPerson(p.slug)}
+              title={personSubtitle(p) || 'Deschide pagina personajului'}
+              className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {personName(p)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {bookmarked && collOpen && (
         <div className="mt-2">
@@ -207,6 +259,25 @@ export default function VerseActions({ verseKey: k, bookmarked, collection = nul
         </div>
       )}
     </div>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </svg>
   );
 }
 

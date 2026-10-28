@@ -1,12 +1,20 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import VerseCard from './VerseCard.jsx';
 
-// Listă fără virtualizare: limităm randarea la primele MAX_RENDER rezultate ca să
-// rămână instant chiar și pentru cuvinte foarte frecvente. (Extensie viitoare:
-// react-window — vezi planul §7.)
-const MAX_RENDER = 500;
+// Listă fără virtualizare: randăm o pagină de rezultate și adăugăm următoarea la
+// cerere, ca prima afișare să fie instant chiar și pentru cuvinte foarte frecvente
+// („a" are peste 30.000 de versete) fără să ascundem restul rezultatelor.
+const PAGE = 100;
 
 function ResultList({ results, query, attribution, translation = null, refine = '', total = null, onOpen, selectedIndex = -1, emptyHint = null }) {
+  const [limit, setLimit] = useState(PAGE);
+  // Set nou de rezultate → începe iar de la prima pagină.
+  useEffect(() => setLimit(PAGE), [results]);
+  // Navigarea cu ↑↓ dincolo de pagina afișată o extinde.
+  useEffect(() => {
+    if (selectedIndex >= limit) setLimit((l) => l + PAGE);
+  }, [selectedIndex, limit]);
+
   if (!results) return null; // starea „idle" e gestionată de App (Versetul zilei)
 
   if (results.length === 0) {
@@ -21,7 +29,8 @@ function ResultList({ results, query, attribution, translation = null, refine = 
     );
   }
 
-  const shown = results.slice(0, MAX_RENDER);
+  const shown = results.slice(0, limit);
+  const rest = results.length - shown.length;
 
   return (
     <div>
@@ -29,7 +38,6 @@ function ResultList({ results, query, attribution, translation = null, refine = 
         {results.length.toLocaleString('ro-RO')}{' '}
         {results.length === 1 ? 'rezultat' : 'rezultate'}
         {refine.trim() && total != null ? ` · filtrate din ${total.toLocaleString('ro-RO')}` : ''}
-        {results.length > MAX_RENDER && ` · afișez primele ${MAX_RENDER}`}
       </p>
       <ul className="space-y-3">
         {shown.map((r, i) => (
@@ -44,6 +52,20 @@ function ResultList({ results, query, attribution, translation = null, refine = 
           />
         ))}
       </ul>
+      {rest > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLimit((l) => l + PAGE)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Arată încă {Math.min(PAGE, rest).toLocaleString('ro-RO')}
+          </button>
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            {shown.length.toLocaleString('ro-RO')} din {results.length.toLocaleString('ro-RO')} afișate
+          </span>
+        </div>
+      )}
     </div>
   );
 }

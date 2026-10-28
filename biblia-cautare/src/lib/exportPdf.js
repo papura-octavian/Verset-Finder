@@ -27,7 +27,7 @@ const QUOTE_BG = '#FFFBEB';
 // (altfel pdfmake nu ocupă deloc rândul).
 function textOf(inlines) {
   if (!inlines.length) return ' ';
-  return inlines.map((r) => ({ text: r.text, bold: !!r.bold, italics: !!r.italic }));
+  return inlines.map((r) => (r.br ? { text: '\n' } : { text: r.text, bold: !!r.bold, italics: !!r.italic }));
 }
 
 /** docDefinition-ul pdfmake al unei predici (fără descărcare). */
@@ -63,10 +63,21 @@ export function sermonToPdfDef(sermon) {
         },
         margin: [0, 6, 0, 8],
       });
-    } else if (b.type === 'ul') {
-      content.push({ ul: b.items.map((it) => ({ text: textOf(it), margin: [0, 1, 0, 1] })), margin: [8, 2, 0, 8] });
-    } else if (b.type === 'ol') {
-      content.push({ ol: b.items.map((it) => ({ text: textOf(it), margin: [0, 1, 0, 1] })), margin: [8, 2, 0, 8] });
+    } else if (b.type === 'list') {
+      // Marcaj + text pe două coloane, indentate pe nivel (sub-punctele din editor).
+      content.push({
+        stack: b.items.map((it) => ({
+          columns: [
+            { width: 16, text: it.ordered ? `${it.num}.` : it.level % 2 ? '◦' : '•', alignment: 'right' },
+            { width: '*', text: textOf(it.inlines) },
+          ],
+          columnGap: 6,
+          margin: [8 + it.level * 16, 1, 0, 1],
+        })),
+        margin: [0, 2, 0, 8],
+      });
+    } else if (b.type === 'hr') {
+      content.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: 483, y2: 0, lineWidth: 0.5, lineColor: '#cbd5e1' }], margin: [0, 8, 0, 12] });
     } else {
       content.push({ text: textOf(b.inlines), margin: [0, 2, 0, 8] });
     }

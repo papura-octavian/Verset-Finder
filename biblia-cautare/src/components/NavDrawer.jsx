@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useScrollLock } from '../lib/useScrollLock.js';
+import BackupPanel from './BackupPanel.jsx';
 
 // Paginile aplicației (sertarul ☰). Iconițele sunt inline, în stilul celorlalte.
 const PAGES = [
   { id: 'search', label: 'Caută', icon: SearchIcon, desc: 'Caută cuvinte sau referințe' },
   { id: 'read', label: 'Citește', icon: BookIcon, desc: 'Citește Biblia capitol cu capitol' },
   { id: 'saved', label: 'Salvate', icon: BookmarkIcon, desc: 'Semne de carte, evidențieri și note' },
+  { id: 'people', label: 'Personaje', icon: PeopleIcon, desc: 'Genealogie și wiki pentru fiecare persoană' },
   { id: 'sermons', label: 'Predici', icon: PenIcon, desc: 'Scrie, organizează și prezintă predici' },
 ];
 
@@ -118,6 +120,10 @@ export default function NavDrawer({ open, view, onNavigate, onClose }) {
             </button>
           );
         })}
+
+        <div className="mt-auto border-t border-slate-200 px-1 pt-3 dark:border-slate-800">
+          <BackupPanel compact />
+        </div>
       </nav>
     </div>
   );
@@ -145,6 +151,16 @@ function BookmarkIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
+function PeopleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }

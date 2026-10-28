@@ -43,6 +43,21 @@ variantele convertite din `biblia-cautare/src/data/`.
   fișierele PDF exportate din editorul de predici.
 - **Licență:** Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
 
+## 5. Personajele Bibliei (pagina „Personaje")
+
+- **Sursă:** Theographic Bible Metadata — Robert Rouse / Viz.Bible
+  (https://github.com/robertrouse/theographic-bible-metadata): persoanele din
+  Biblie, relațiile de familie, versetele în care apar și textele din Easton's
+  Bible Dictionary (1897, domeniu public).
+- **Licență:** Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/). Atribuirea
+  apare și în aplicație, la finalul paginii fiecărui personaj.
+- **Modificări:** set restrâns la câmpurile folosite, referințele convertite la
+  abrevierile aplicației și nume românești adăugate automat (deduse din textul
+  RCCV). Fișierul derivat se distribuie sub aceeași licență, CC BY-SA 4.0.
+- **Fișier în repository:** `biblia-cautare/src/data/people.json`
+  (convertit cu `biblia-cautare/scripts/buildPeople.mjs`).
+
 ---
 
 Versiuni anterioare ale proiectului foloseau fișiere JSON derivate din

@@ -12,6 +12,9 @@ import {
   prevChapter,
   nextChapter,
 } from '../lib/reader.js';
+import { speechSupported, useVoices, pickVoice, speakParts, pauseSpeech, resumeSpeech } from '../lib/speech.js';
+
+const RATES = [0.8, 1, 1.2, 1.5];
 
 // Preferințe de afișare ale cititorului (persistate).
 const READER_PREFS_KEY = 'biblia:reader';
@@ -28,7 +31,7 @@ const DEFAULT_SIZE = 2; // text-lg, confortabil pentru citit
  * Controlat: primește `target` { abbrev, chapter, verse|null } și raportează prin
  * `onNavigate`, ca App să sincronizeze URL-ul.
  */
-export default function ChapterView({ translation, target, onNavigate, onClose = null, pageMode = false }) {
+export default function ChapterView({ translation, target, onNavigate, onOpenPerson = null, onClose = null, pageMode = false }) {
   const { abbrev, chapter, verse } = target;
   const verses = getChapterVerses(translation, abbrev, chapter);
   const total = chapterCount(translation, abbrev);
@@ -62,7 +65,13 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
   const [prefs, setPrefs] = useState(() => {
     const p = loadJSON(READER_PREFS_KEY, null);
     const size = p && Number.isInteger(p.size) ? Math.min(SIZES.length - 1, Math.max(0, p.size)) : DEFAULT_SIZE;
-    return { size, serif: !!(p && p.serif), compare: !!(p && p.compare) };
+    return {
+      size,
+      serif: !!(p && p.serif),
+      compare: !!(p && p.compare),
+      rate: p && RATES.includes(p.rate) ? p.rate : 1,
+      autoNext: p ? p.autoNext !== false : true,
+    };
   });
   useEffect(() => {
     saveJSON(READER_PREFS_KEY, prefs);
@@ -84,15 +93,85 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
   // versetul selectat (cu bara de acțiuni deschisă) primește un contur discret.
   const cellCls = (n) => {
     const isTarget = verse === n && targetFlash;
+    const isSpoken = listen?.current === n;
     const hl = highlightBg(ann.highlights[verseKey(abbrev, chapter, n)]);
     return (
       (pageMode ? 'scroll-mt-28 ' : 'scroll-mt-4 ') +
       'cursor-pointer rounded-md px-1.5 py-0.5 transition-colors ' +
       (hl ? hl + ' ' : isTarget ? 'bg-yellow-200/70 dark:bg-yellow-400/20 ' : '') +
       (isTarget ? 'ring-1 ring-yellow-300 dark:ring-yellow-400/40 ' : '') +
-      (selected === n ? 'outline-2 outline-slate-400/80 dark:outline-slate-500/80' : '')
+      (selected === n ? 'outline-2 outline-slate-400/80 dark:outline-slate-500/80 ' : '') +
+      (isSpoken ? 'ring-2 ring-sky-400/70 dark:ring-sky-400/50' : '')
     );
   };
+
+  // --- Ascultă (citire cu voce tare) ---
+  // listen: null (oprit) sau { current: nr. versetului citit, paused }.
+  const voices = useVoices();
+  const voice = pickVoice(voices, translation.lang);
+  const [listen, setListen] = useState(null);
+  const stopRef = useRef(null);
+  const autoplayRef = useRef(false); // capitolul următor pornește singur după navigare
+
+  function startListening(from = 1) {
+    if (!verses?.length) return;
+    stopRef.current?.();
+    const intro = `${bookName(translation, abbrev)}, capitolul ${chapter}. `;
+    const parts = verses.slice(from - 1).map((t, i) => ({ id: from + i, text: (i === 0 && from === 1 ? intro : '') + t }));
+    setListen({ current: from, paused: false });
+    stopRef.current = speakParts(parts, {
+      voice,
+      lang: translation.lang,
+      rate: prefs.rate,
+      onPart: (n) => setListen((l) => (l ? { ...l, current: n } : l)),
+      onEnd: () => {
+        const nx = nextChapter(translation, abbrev, chapter);
+        if (prefs.autoNext && nx) {
+          autoplayRef.current = true;
+          onNavigate({ abbrev: nx.abbrev, chapter: nx.chapter, verse: null });
+        } else {
+          stopRef.current = null;
+          setListen(null);
+        }
+      },
+    });
+  }
+
+  function stopListening() {
+    stopRef.current?.();
+    stopRef.current = null;
+    setListen(null);
+  }
+
+  function togglePause() {
+    if (!listen) return;
+    if (listen.paused) resumeSpeech();
+    else pauseSpeech();
+    setListen({ ...listen, paused: !listen.paused });
+  }
+
+  // Alt capitol: continuă citirea dacă a venit de la „continuă", altfel se oprește.
+  useEffect(() => {
+    if (autoplayRef.current) {
+      autoplayRef.current = false;
+      startListening(1);
+    } else if (stopRef.current) {
+      stopListening();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abbrev, chapter, translation.id]);
+  useEffect(() => () => stopRef.current?.(), []);
+
+  // Versetul care se aude rămâne pe ecran.
+  useEffect(() => {
+    if (listen?.current) document.getElementById(`v${listen.current}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [listen?.current]);
+
+  // Viteza nouă se aplică imediat: reia de la versetul curent.
+  useEffect(() => {
+    if (listen && !listen.paused) startListening(listen.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.rate]);
 
   // Atingerea unui verset deschide/închide bara de acțiuni de sub el.
   const toggleSelected = (n) => setSelected((s) => (s === n ? null : n));
@@ -110,6 +189,8 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
         copyPayload={`${bookName(translation, abbrev)} ${chapter}:${n} — „${verses?.[n - 1] ?? ''}” (${translation.attribution})`}
         translation={translation}
         onGoTo={onNavigate}
+        onOpenPerson={onOpenPerson}
+        onListen={speechSupported ? () => startListening(n) : null}
       />
     );
   };
@@ -164,7 +245,7 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
     ? 'px-4 py-4 sm:px-6'
     : 'overflow-y-auto px-4 py-4 sm:px-6';
   const footerCls = pageMode
-    ? 'sticky bottom-0 z-20 flex items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-3 py-2 sm:px-4 dark:border-slate-800 dark:bg-slate-950'
+    ? 'sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 flex items-center justify-between gap-2 border-t sm:bottom-0 border-slate-200 bg-slate-50 px-3 py-2 sm:px-4 dark:border-slate-800 dark:bg-slate-950'
     : 'flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 sm:px-4 dark:border-slate-800';
 
   return (
@@ -178,6 +259,23 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
           <div className="flex shrink-0 items-center gap-1">
             {copied && (
               <span className="mr-1 text-xs text-emerald-600 dark:text-emerald-400">Link copiat!</span>
+            )}
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={() => (listen ? stopListening() : startListening(1))}
+                aria-pressed={!!listen}
+                title={listen ? 'Oprește citirea' : 'Ascultă capitolul'}
+                aria-label={listen ? 'Oprește citirea' : 'Ascultă capitolul'}
+                className={
+                  'rounded-lg p-1.5 transition ' +
+                  (listen
+                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'
+                    : 'text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100')
+                }
+              >
+                <SpeakerIcon />
+              </button>
             )}
             <button
               type="button"
@@ -254,6 +352,45 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
             <ChevronRight />
           </button>
         </div>
+
+        {listen && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 px-2 py-1.5 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100" role="region" aria-label="Citire cu voce tare">
+            <button type="button" onClick={togglePause} className="rounded-md px-2 py-0.5 font-medium transition hover:bg-sky-100 dark:hover:bg-sky-900/60">
+              {listen.paused ? '▶ Continuă' : '⏸ Pauză'}
+            </button>
+            <button type="button" onClick={stopListening} className="rounded-md px-2 py-0.5 transition hover:bg-sky-100 dark:hover:bg-sky-900/60">
+              ⏹ Stop
+            </button>
+            <span className="tabular-nums text-sky-700 dark:text-sky-300">v. {listen.current}</span>
+            <select
+              value={prefs.rate}
+              onChange={(e) => setPrefs((p) => ({ ...p, rate: Number(e.target.value) }))}
+              aria-label="Viteza de citire"
+              className="ml-auto rounded-md border border-sky-200 bg-white px-1.5 py-0.5 text-xs dark:border-sky-800 dark:bg-slate-900"
+            >
+              {RATES.map((r) => (
+                <option key={r} value={r}>
+                  {r}×
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1 text-xs">
+              <input
+                type="checkbox"
+                checked={prefs.autoNext}
+                onChange={(e) => setPrefs((p) => ({ ...p, autoNext: e.target.checked }))}
+              />
+              continuă cu capitolul următor
+            </label>
+            {!voice && (
+              <p className="w-full text-xs text-amber-700 dark:text-amber-300">
+                Nu e instalată o voce {translation.lang === 'ro' ? 'românească' : 'englezească'} pe acest dispozitiv, așa că
+                se citește cu vocea implicită. Pe Android și în Edge există voci românești; pe Windows le adaugi din
+                Setări › Oră și limbă › Vorbire.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Corp: versetele capitolului */}
@@ -386,6 +523,15 @@ export default function ChapterView({ translation, target, onNavigate, onClose =
         )}
       </div>
     </div>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
   );
 }
 

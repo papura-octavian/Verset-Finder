@@ -43,17 +43,25 @@ function renderBlocks(text) {
       );
     }
 
-    if (b.type === 'ul' || b.type === 'ol') {
-      const Tag = b.type;
+    if (b.type === 'list') {
+      // Marcajul e cel scris de utilizator (numărul tastat), ca sub-punctele
+      // indentate să arate exact ca în editor.
       return (
-        <Tag key={key} className={'my-2 space-y-1 pl-6 ' + (b.type === 'ul' ? 'list-disc' : 'list-decimal')}>
+        <ul key={key} className="my-2 space-y-1">
           {b.items.map((it, ii) => (
-            <li key={ii} className="leading-relaxed">
-              {runs(it)}
+            <li key={ii} className="flex gap-2 leading-relaxed" style={{ paddingLeft: `${0.4 + it.level * 1.4}em` }}>
+              <span className="w-[1.4em] shrink-0 text-right text-slate-400 tabular-nums dark:text-slate-500">
+                {it.ordered ? `${it.num}.` : it.level % 2 ? '◦' : '•'}
+              </span>
+              <span className="min-w-0">{runs(it.inlines)}</span>
             </li>
           ))}
-        </Tag>
+        </ul>
       );
+    }
+
+    if (b.type === 'hr') {
+      return <hr key={key} className="my-6 border-slate-200 dark:border-slate-700" />;
     }
 
     return (
@@ -66,6 +74,6 @@ function renderBlocks(text) {
 
 function runs(inlines) {
   return inlines.map((r, k) =>
-    r.bold ? <strong key={k}>{r.text}</strong> : r.italic ? <em key={k}>{r.text}</em> : r.text
+    r.br ? <br key={k} /> : r.bold ? <strong key={k}>{r.text}</strong> : r.italic ? <em key={k}>{r.text}</em> : r.text
   );
 }

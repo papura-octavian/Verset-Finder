@@ -1,9 +1,10 @@
 // Schema URL cu hash — UN SINGUR loc de parse/format pentru întreaga aplicație.
 //
-// Trei forme:
+// Patru forme:
 //   #<trad>/<carte>.<capitol>[.<verset>]   → cititor-overlay (ex. #rccv/jo.3.16, #rccv/ps.23)
 //   #<trad>/r/<carte>.<capitol>[.<verset>] → pagina Citește (ex. #rccv/r/jo.3)
 //   #<trad>/q=<căutare>                     → căutare reluată din link (ex. #rccv/q=credinta)
+//   #<trad>/p/<saved|sermons|people>[/<x>]  → paginile Salvate / Predici / Personaje (x = persoana)
 //
 // Notă: abrevierile de cărți pot conține cifre (1sm, 2co, 1jo), dar NICIODATĂ punct,
 // deci putem împărți partea de referință după „." fără ambiguitate:
@@ -15,6 +16,14 @@
 // Id-urile vechi de traduceri (link-uri partajate înainte de trecerea pe
 // RCCV/ASV) sunt acceptate în continuare la parse.
 const LEGACY_TRANSLATIONS = { vdc: 'rccv', kjv: 'asv' };
+
+// Paginile fără poziție proprie, adresabile ca #<trad>/p/<pagină> (ca Back să le parcurgă).
+const PAGES = ['saved', 'sermons', 'people'];
+
+/** Hash-ul unei pagini (Salvate / Predici / Personaje), opțional cu un element (persoana). */
+export function formatPage(translation, page, sub = null) {
+  return `#${translation}/p/${page}${sub ? '/' + encodeURIComponent(sub) : ''}`;
+}
 
 /**
  * Parsează un hash de URL într-o stare structurată.
@@ -55,6 +64,13 @@ export function parseHash(raw) {
     type = 'read';
     rest = rest.slice(2);
     if (!rest) return null;
+  }
+
+  // Formă pagină: p/<saved|sermons|people>[/<element>] (ex. p/people/abraham_58)
+  if (rest.startsWith('p/')) {
+    const [page, sub] = rest.slice(2).split('/');
+    if (!PAGES.includes(page)) return null;
+    return { type: 'page', translation, page, sub: sub ? decodeURIComponent(sub) : null };
   }
 
   // Referință: <carte>.<capitol>[.<verset>]

@@ -57,6 +57,47 @@ function update(part, value) {
   listeners.forEach((fn) => fn());
 }
 
+// Alt tab a scris în localStorage: preia felia de acolo. Altfel, prima salvare
+// din tab-ul curent (care are în memorie lista veche) ar șterge ce s-a adăugat acolo.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    const part = Object.keys(KEYS).find((p) => KEYS[p] === e.key);
+    if (!part) return;
+    state = { ...state, [part]: loadJSON(KEYS[part], {}) };
+    listeners.forEach((fn) => fn());
+  });
+}
+
+/** Toate adnotările, pentru backup. */
+export function exportAnnotations() {
+  return { bookmarks: state.bookmarks, highlights: state.highlights, notes: state.notes };
+}
+
+/**
+ * Unește adnotările dintr-un backup cu cele existente. La același verset rămâne
+ * varianta mai nouă (după `at`); evidențierile din backup completează doar
+ * versetele fără culoare. Întoarce numărul de intrări noi sau actualizate.
+ */
+export function importAnnotations(data) {
+  let changed = 0;
+  const merge = (part, isNewer) => {
+    const incoming = data?.[part];
+    if (!incoming || typeof incoming !== 'object') return;
+    const next = { ...state[part] };
+    for (const [key, val] of Object.entries(incoming)) {
+      if (!/^[0-9a-z]+\.\d+\.\d+$/.test(key) || val == null) continue;
+      if (next[key] && !isNewer(val, next[key])) continue;
+      next[key] = val;
+      changed++;
+    }
+    update(part, next);
+  };
+  merge('bookmarks', (a, b) => (a.at || 0) > (b.at || 0));
+  merge('notes', (a, b) => typeof a.text === 'string' && (a.at || 0) > (b.at || 0));
+  merge('highlights', () => false);
+  return changed;
+}
+
 /** Cheia canonică a unui verset. */
 export function verseKey(abbrev, chapter, verse) {
   return `${abbrev}.${chapter}.${verse}`;

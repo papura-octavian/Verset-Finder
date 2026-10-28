@@ -13,8 +13,10 @@ Traduceri incluse: **Cornilescu corectată (RCCV)** pentru română și
 - Căutare instant, **fără diacritice** („credinta" găsește „credinţă").
 - Filtre: Vechiul/Noul Testament, carte, capitole (`1-3, 5`), cuvânt întreg,
   frază exactă, plus „caută în rezultate" pentru îngustare.
-- **Referințe directe cu `@`**: `@ioan 3:16`, `@isaia 1:1-10`, `@psalmii 23` —
-  aduce direct pasajul, nu cuvinte.
+- **Referințe directe**: `ioan 3:16`, `Ioan 3.16`, `1 ioan 1,9`, `ps 23`,
+  `isaia 1:1-10`, `iuda 3` — aduce direct pasajul, nu cuvinte (recunoscute și
+  fără `@`; „caută cuvintele în schimb" când chiar voiai textul).
+- Rezultate nelimitate, afișate câte 100 („Arată încă").
 - Istoric de căutări, versetul zilei, navigare din tastatură (`/`, `↑↓`, `Enter`).
 
 ### 📖 Citire
@@ -32,18 +34,47 @@ Traduceri incluse: **Cornilescu corectată (RCCV)** pentru română și
   versete înrudite (date openbible.info / Treasury of Scripture Knowledge),
   vizibile și în cititor, și direct pe rezultatele căutării, cu salt la pasaj.
 
+### 👥 Personaje
+- **Toate persoanele numite în Biblie** (peste 3.000, de la Adam până la ultimii
+  frați salutați în epistole), fiecare cu o pagină de tip wiki: familia (părinți,
+  soț/soție, frați, copii), **linia strămoșilor** până la Adam, **arborele
+  urmașilor**, toate versetele în care apare și nota din dicționarul Easton.
+- Căutare după nume (românesc sau englezesc), filtre bărbați/femei, ordonare după
+  câte versete îi pomenesc, alfabetic sau cronologic.
+- În cititor, la fiecare verset apar personajele numite în el, cu link spre paginile lor.
+
+### 🔊 Ascultă și distribuie
+- **Citire cu voce tare** a capitolului sau de la un verset, cu versetul curent
+  evidențiat, pauză, viteză și continuare automată la capitolul următor (vocile
+  dispozitivului — funcționează și offline).
+- **Imagine cu versetul** (pătrat pentru postări sau vertical pentru story, 5 teme),
+  de descărcat sau trimis direct din telefon.
+
 ### 🎤 Predici
-- **Editor de predici** cu markdown și toolbar simplu (titluri, liste, citate),
-  comenzi de editor (Tab, Ctrl+Z/Y, Ctrl+B/I, continuare automată a listelor).
-- **Inserare rapidă de versete** după referință, șabloane (predică în 3 puncte,
-  studiu biblic), **mod prezentare** pe tot ecranul și export `.md`.
-- Salvare automată locală (IndexedDB); pe desktop, layout tip Obsidian
-  (lista de predici în stânga, scrisul în centru).
+- **Editor de predici** cu markdown și toolbar simplu (titluri, liste cu
+  sub-puncte, citate, separatoare), comenzi de editor (Tab, Ctrl+Z/Y, Ctrl+B/I,
+  continuare automată a listelor).
+- **Inserare rapidă de versete**: scrie `@ioan 3:16` pe un rând și apasă Enter,
+  sau alege din referință / salvate / evidențieri / note. Șabloane (predică în
+  3 puncte, studiu biblic).
+- **Cuprins** cu salt la secțiune, număr de cuvinte și **durata estimată** a
+  predicii, căutare în predici, copie a unei predici, „Anulează" după ștergere.
+- **Mod prezentare** cu **slide-uri** (unul pe secțiune `##` sau `---`; ← →,
+  Spațiu, click), text reglabil, cronometru și ecran complet — sau tot textul
+  derulat.
+- Export `.md`, Word (`.docx`) și PDF.
+- Salvare automată locală (IndexedDB), inclusiv la închiderea bruscă a
+  tab-ului; pe desktop, layout tip Obsidian (lista în stânga, scrisul în centru).
 
 ### 🌙 Altele
+- **Backup și restaurare** (.json) pentru note, evidențieri, salvate și
+  predici — singura cale de a nu le pierde la ștergerea datelor browserului sau
+  de a le muta pe alt dispozitiv. Datele rămân sincronizate între tab-uri.
+- Paginile mereu la un click (file pe desktop, bară jos pe telefon), cu
+  butonul Back funcțional între ele.
 - Mod întunecat, optimizat pentru telefon/tabletă/desktop, deep-link-uri
-  pentru orice stare (pasaj, căutare), 100% static — fără backend, fără tracking
-  de date personale.
+  pentru orice stare (pasaj, căutare, pagină), 100% static — fără backend, fără
+  tracking de date personale.
 
 ## Dezvoltare
 
@@ -60,11 +91,13 @@ Datele biblice se generează din surse brute (locale, în `data-src/`, nu intră
 în git) cu scripturile din `biblia-cautare/scripts/`:
 - `convertBibles.mjs` — RCCV (USFX) + ASV (Zefania XML) → JSON-ul aplicației.
 - `buildCrossRefs.mjs` — trimiterile openbible.info → top 10 per verset.
+- `buildPeople.mjs` — personajele din Theographic → `people.json`, cu numele
+  românești deduse din RCCV.
 
 Detalii tehnice: [biblia-cautare/README.md](biblia-cautare/README.md).
 
 ## Licență / surse
 
-Codul: **MIT** ([LICENSE](LICENSE)). Textele biblice (domeniu public) și
-trimiterile (CC-BY openbible.info): vezi
+Codul: **MIT** ([LICENSE](LICENSE)). Textele biblice (domeniu public),
+trimiterile (CC-BY openbible.info) și personajele (CC BY-SA 4.0, Theographic): vezi
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

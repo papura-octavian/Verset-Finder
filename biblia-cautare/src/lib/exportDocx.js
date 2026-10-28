@@ -5,11 +5,9 @@
 // stângă + fundal amber (versetele inserate), liste reale, bold/italic.
 
 import {
-  AlignmentType,
   BorderStyle,
   Document,
   HeadingLevel,
-  LevelFormat,
   Packer,
   Paragraph,
   ShadingType,
@@ -25,7 +23,7 @@ const QUOTE_BG = 'FFFBEB';
 const HEADINGS = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
 
 function runsOf(inlines) {
-  return inlines.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic }));
+  return inlines.map((r) => (r.br ? new TextRun({ break: 1 }) : new TextRun({ text: r.text, bold: r.bold, italics: r.italic })));
 }
 
 // Un rând de citat; bordura/fundalul sunt pe fiecare paragraf, iar spațierea
@@ -43,27 +41,31 @@ function quotePara(inlines, first, last) {
 /** Documentul Word complet al unei predici (fără descărcare). */
 export function sermonToDocx(sermon) {
   const children = [];
-  let olInstance = 0; // instanță separată per listă → numerotarea repornește de la 1
 
   for (const b of parseBlocks(sermonMarkdown(sermon))) {
     if (b.type === 'h') {
       children.push(new Paragraph({ heading: HEADINGS[b.level], children: runsOf(b.inlines) }));
     } else if (b.type === 'quote') {
       b.paras.forEach((q, i) => children.push(quotePara(q, i === 0, i === b.paras.length - 1)));
-    } else if (b.type === 'ul') {
-      b.items.forEach((it) =>
-        children.push(new Paragraph({ children: runsOf(it), bullet: { level: 0 }, spacing: { after: 60 } }))
-      );
-    } else if (b.type === 'ol') {
-      olInstance++;
-      b.items.forEach((it) =>
+    } else if (b.type === 'list') {
+      // Punctele folosesc lista Word reală; la numerotate păstrăm numărul scris
+      // de autor (cu indent agățat), ca sub-punctele să arate ca în editor.
+      b.items.forEach((it) => {
+        const left = 720 + it.level * 432;
         children.push(
-          new Paragraph({
-            children: runsOf(it),
-            numbering: { reference: 'lista-numerotata', level: 0, instance: olInstance },
-            spacing: { after: 60 },
-          })
-        )
+          it.ordered
+            ? new Paragraph({
+                children: [new TextRun({ text: `${it.num}.\t` }), ...runsOf(it.inlines)],
+                indent: { left, hanging: 360 },
+                tabStops: [{ type: 'left', position: left }],
+                spacing: { after: 60 },
+              })
+            : new Paragraph({ children: runsOf(it.inlines), bullet: { level: Math.min(it.level, 8) }, spacing: { after: 60 } })
+        );
+      });
+    } else if (b.type === 'hr') {
+      children.push(
+        new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1' } }, spacing: { after: 200 } })
       );
     } else {
       children.push(new Paragraph({ children: runsOf(b.inlines), spacing: { after: 120 } }));
@@ -71,22 +73,6 @@ export function sermonToDocx(sermon) {
   }
 
   return new Document({
-    numbering: {
-      config: [
-        {
-          reference: 'lista-numerotata',
-          levels: [
-            {
-              level: 0,
-              format: LevelFormat.DECIMAL,
-              text: '%1.',
-              alignment: AlignmentType.START,
-              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-            },
-          ],
-        },
-      ],
-    },
     styles: {
       default: { document: { run: { font: 'Calibri', size: 24 } } }, // corp 12pt
       paragraphStyles: [

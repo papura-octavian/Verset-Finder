@@ -59,19 +59,40 @@ export function parseReference(input, translation) {
   if (!s) return { error: 'empty' };
 
   // Numele cărții = totul înainte de coada numerică „cap[:vers[-vers]]".
-  const m = s.match(/^(.+?)\s+(\d+)(?::(\d+)(?:\s*-\s*(\d+))?)?$/);
+  // Separatorul capitol/verset poate fi „:", „." sau „," (Ioan 3:16 / 3.16 / 3,16),
+  // iar spațiul dintre carte și capitol e opțional („ioan3:16").
+  const m = s.match(/^(.*?[^\d\s].*?)\s*(\d+)(?:\s*[:.,]\s*(\d+)(?:\s*[-–]\s*(\d+))?)?\.?$/);
   if (!m) return { error: 'format' };
 
   const abbrev = resolveBook(m[1], translation);
   if (!abbrev) return { error: 'book' };
 
-  const chapter = parseInt(m[2], 10);
+  let chapter = parseInt(m[2], 10);
   let verseStart = m[3] != null ? parseInt(m[3], 10) : null;
   let verseEnd = m[4] != null ? parseInt(m[4], 10) : null;
+  // Cărțile cu un singur capitol (Obadia, Filimon, 2-3 Ioan, Iuda) se citează
+  // de obicei doar cu versetul: „Iuda 3" = Iuda 1:3.
+  if (verseStart == null && chapter > 1 && translation?.data?.find((b) => b.abbrev === abbrev)?.chapters.length === 1) {
+    verseStart = chapter;
+    chapter = 1;
+  }
   if (verseStart != null && verseEnd != null && verseEnd < verseStart) {
     [verseStart, verseEnd] = [verseEnd, verseStart];
   }
   return { abbrev, chapter, verseStart, verseEnd };
+}
+
+/**
+ * Recunoaște o referință tastată fără „@" („ioan 3:16", „Ps 23", „1 Ioan 1,9").
+ * Strict, ca să nu fure căutările obișnuite: doar „carte + număr", cu o carte
+ * care există și un capitol care există. Altfel null (rămâne căutare de cuvinte).
+ */
+export function detectReference(input, translation) {
+  const s = (input || '').trim();
+  if (s.startsWith('@') || !/^(\d\s*)?[\p{L}][\p{L}.\s]*\s*\d+(\s*[:.,]\s*\d+(\s*[-–]\s*\d+)?)?\.?$/u.test(s)) return null;
+  const ref = parseReference(s, translation);
+  if (!ref || ref.error) return null;
+  return referenceVerses(translation, ref).length ? ref : null;
 }
 
 /**

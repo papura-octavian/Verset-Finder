@@ -31,6 +31,7 @@ Sursele brute stau local în `../data-src/` (nu intră în git — vezi
 ```bash
 node scripts/convertBibles.mjs    # ron-rccv.usfx.xml + eng-asv.zefania.xml → src/data/{rccv,asv}.json
 node scripts/buildCrossRefs.mjs   # cross_references.txt (openbible.info) → src/data/crossrefs.json
+node scripts/buildPeople.mjs      # theographic/{people,verses}.json → src/data/people.json
 ```
 
 ## Structură
@@ -47,6 +48,9 @@ node scripts/buildCrossRefs.mjs   # cross_references.txt (openbible.info) → sr
 - `src/lib/annotations.js` — semne de carte / evidențieri / note (localStorage).
 - `src/lib/sermons.js` — predicile (IndexedDB, cu fallback localStorage).
 - `src/lib/crossrefs.js` — accesul la trimiteri.
+- `src/data/people.json` / `src/lib/people.js` — personajele (familie, strămoși, versete).
+- `src/lib/speech.js` — citirea cu voce tare (Web Speech API).
+- `src/lib/backup.js` — backup / restaurare pentru datele personale.
 - `src/components/` — UI: căutare (`SearchBar`, `ResultList`, `VerseCard`),
   cititor (`Reader`, `ChapterView`, `VerseActions`, `CrossRefsList`),
   pagini (`SavedView`, `SermonsView`), navigație (`NavDrawer`), `Markdown`.

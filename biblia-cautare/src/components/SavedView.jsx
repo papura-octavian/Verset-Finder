@@ -10,6 +10,7 @@ import {
   HIGHLIGHT_COLORS,
 } from '../lib/annotations.js';
 import { getChapterVerses, bookName } from '../lib/reader.js';
+import BackupPanel from './BackupPanel.jsx';
 
 const TABS = [
   { id: 'bookmarks', label: 'Semne de carte' },
@@ -319,6 +320,10 @@ export default function SavedView({ translation, onOpen }) {
             ))}
           </ul>
         ))}
+
+      <div className="mt-8">
+        <BackupPanel />
+      </div>
     </div>
   );
 }
